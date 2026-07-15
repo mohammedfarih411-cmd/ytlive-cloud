@@ -23,7 +23,7 @@
       "token_file": "token_channel1.json",
       "title_template": "{title}",
       "description": "بث مباشر يومي",
-      "privacy": "private",
+      "privacy": "public",
       "language": "ar"
     },
     "channel12": {
@@ -32,7 +32,7 @@
       "token_file": "token_channel2.json",
       "title_template": "{title}",
       "description": "Daily live stream",
-      "privacy": "private",
+      "privacy": "public",
       "language": "en"
     },
     "channel3": {
@@ -41,7 +41,7 @@
       "token_file": "token_channel3.json",
       "title_template": "{title}",
       "description": "بث مباشر يومي",
-      "privacy": "private",
+      "privacy": "public",
       "language": "ar"
     },
     "channel4": {
@@ -50,7 +50,7 @@
       "token_file": "token_channel4.json",
       "title_template": "{title}",
       "description": "Daily live stream",
-      "privacy": "private",
+      "privacy": "public",
       "language": "en"
     }
   },
