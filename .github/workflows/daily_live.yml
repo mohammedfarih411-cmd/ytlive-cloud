@@ -3,7 +3,7 @@ name: Daily YouTube Live
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 20 * * *"
+    - cron: "7 20 * * *"
       timezone: "Europe/Rome"
 
 permissions:
