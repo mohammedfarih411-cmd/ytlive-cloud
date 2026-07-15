@@ -1,0 +1,23 @@
+# ===== أسرار — لا تُرفع أبدًا =====
+config.json
+client_secret.json
+token_*.json
+cookies.txt
+
+# ===== ملفات التشغيل والمخرجات =====
+work/
+*.log
+daily.log
+
+# ===== بايثون =====
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+cookies.txt
+client_secret.json
+token_channel*.json
+work/
+__pycache__/
+*.pyc

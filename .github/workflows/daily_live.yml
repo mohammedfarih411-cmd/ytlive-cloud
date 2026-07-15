@@ -1,0 +1,96 @@
+name: Daily YouTube Live
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 20 * * *"
+      timezone: "Europe/Rome"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-youtube-live
+  cancel-in-progress: false
+
+jobs:
+  stream:
+    name: Stream Daily Channel
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install --upgrade "yt-dlp[default]"
+
+      - name: Restore private files
+        env:
+          COOKIES_B64: ${{ secrets.COOKIES_B64 }}
+          TOKEN_CHANNEL11_B64: ${{ secrets.TOKEN_CHANNEL11_B64 }}
+          TOKEN_CHANNEL12_B64: ${{ secrets.TOKEN_CHANNEL12_B64 }}
+          TOKEN_CHANNEL13_B64: ${{ secrets.TOKEN_CHANNEL13_B64 }}
+          TOKEN_CHANNEL14_B64: ${{ secrets.TOKEN_CHANNEL14_B64 }}
+        run: |
+          printf '%s' "$COOKIES_B64" | base64 --decode > cookies.txt
+          printf '%s' "$TOKEN_CHANNEL11_B64" | base64 --decode > token_channel11.json
+          printf '%s' "$TOKEN_CHANNEL12_B64" | base64 --decode > token_channel12.json
+          printf '%s' "$TOKEN_CHANNEL13_B64" | base64 --decode > token_channel13.json
+          printf '%s' "$TOKEN_CHANNEL14_B64" | base64 --decode > token_channel14.json
+
+          test -s cookies.txt
+          test -s token_channel11.json
+          test -s token_channel12.json
+          test -s token_channel13.json
+          test -s token_channel14.json
+
+      - name: Validate configuration
+        run: |
+          python -m json.tool config.json > /dev/null
+          python -c "import json; d=json.load(open('config.json',encoding='utf-8')); print('Channels:', list(d['channels'].keys()))"
+
+      - name: Start daily live stream
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          END_TIME=$((SECONDS + 20400))
+
+          while [ "$SECONDS" -lt "$END_TIME" ]; do
+            echo "Starting the next live video..."
+            python daily_live.py
+
+            EXIT_CODE=$?
+
+            if [ "$EXIT_CODE" -ne 0 ]; then
+              echo "daily_live.py failed with exit code $EXIT_CODE"
+              exit "$EXIT_CODE"
+            fi
+
+            if [ "$SECONDS" -lt "$END_TIME" ]; then
+              echo "Video completed. Waiting 5 seconds..."
+              sleep 5
+            fi
+          done
+
+          echo "Maximum daily streaming time completed."
