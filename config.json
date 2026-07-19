@@ -17,7 +17,7 @@
     "chat_id": "ضع_chat_id_هنا"
   },
   "channels": {
-    "channel1": {
+    "channel11": {
       "name": "رمال النجاة",
       "youtube_channel_url": "https://www.youtube.com/@vlh-p8k/videos",
       "token_file": "token_channel1.json",
@@ -35,7 +35,7 @@
       "privacy": "public",
       "language": "en"
     },
-    "channel3": {
+    "channel13": {
       "name": "أصوات الجريمة",
       "youtube_channel_url": "https://www.youtube.com/@أصواتالجريمة-ي9ش/videos",
       "token_file": "token_channel3.json",
@@ -44,7 +44,7 @@
       "privacy": "public",
       "language": "ar"
     },
-    "channel4": {
+    "channel14": {
       "name": "Voices of Crime",
       "youtube_channel_url": "https://www.youtube.com/@VoicesofCrime-b9t/videos",
       "token_file": "token_channel4.json",
