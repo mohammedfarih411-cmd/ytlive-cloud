@@ -1,0 +1,45 @@
+name: GitHub Actions Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/actions_diagnostic.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Safe Actions Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate workflow files
+        shell: bash
+        run: |
+          test -f .github/workflows/daily_live.yml
+          test -f .github/workflows/schedule_probe.yml
+          test -f daily_live.py
+          test -f config.json
+
+      - name: Validate channel mapping
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          config = json.loads(Path("config.json").read_text(encoding="utf-8"))
+          order = config["schedule_order"]
+          channels = config["channels"]
+          missing = [name for name in order if name not in channels]
+          if missing:
+              raise SystemExit(f"Missing channel keys: {missing}")
+          print("GitHub Actions is working.")
+          print("Schedule order:", order)
+          print("Channel keys:", list(channels))
