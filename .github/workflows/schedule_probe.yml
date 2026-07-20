@@ -5,10 +5,18 @@ on:
   schedule:
     - cron: "7 20 * * *"
       timezone: "Europe/Rome"
+    - cron: "17 20 * * *"
+      timezone: "Europe/Rome"
+    - cron: "27 20 * * *"
+      timezone: "Europe/Rome"
 
 permissions:
   actions: write
   contents: read
+
+concurrency:
+  group: ytlive-scheduler-bridge
+  cancel-in-progress: false
 
 jobs:
   dispatch-live:
@@ -16,16 +24,31 @@ jobs:
     timeout-minutes: 2
 
     steps:
-      - name: Start Daily YouTube Live
+      - name: Start Daily YouTube Live if not already active
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
+        shell: bash
         run: |
-          curl --fail-with-body --silent --show-error --location \
-            --request POST \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2026-03-10" \
-            --header "Content-Type: application/json" \
-            "https://api.github.com/repos/$REPOSITORY/actions/workflows/daily_live.yml/dispatches" \
-            --data '{"ref":"main"}'
+          set -euo pipefail
+
+          API="https://api.github.com/repos/$REPOSITORY"
+          HEADERS=(
+            --header "Accept: application/vnd.github+json"
+            --header "Authorization: Bearer $GH_TOKEN"
+            --header "X-GitHub-Api-Version: 2026-03-10"
+          )
+
+          ACTIVE_RUNS="$(
+            curl --fail-with-body --silent --show-error --location               "${HEADERS[@]}"               "$API/actions/workflows/daily_live.yml/runs?branch=main&per_page=20" |
+            python -c 'import json,sys; data=json.load(sys.stdin); print(sum(run.get("status") in {"queued","in_progress","pending","waiting","requested"} for run in data.get("workflow_runs", [])))'
+          )"
+
+          if [ "$ACTIVE_RUNS" -gt 0 ]; then
+            echo "Daily YouTube Live is already active; skipping duplicate dispatch."
+            exit 0
+          fi
+
+          curl --fail-with-body --silent --show-error --location             --request POST             "${HEADERS[@]}"             --header "Content-Type: application/json"             "$API/actions/workflows/daily_live.yml/dispatches"             --data '{"ref":"main"}'
+
+          echo "Daily YouTube Live dispatch accepted."
