@@ -16,7 +16,6 @@ import os
 import sys
 import json
 import glob
-import random
 import datetime
 import subprocess
 
@@ -190,15 +189,26 @@ def main():
         if not ids:
             raise RuntimeError("لا توجد فيديوهات في القناة.")
 
-        candidates = ids[:]
-        random.shuffle(candidates)
-        max_attempts = min(10, len(candidates))
+        position_file = os.path.join(work, f"playlist_position_{channel}.txt")
+        try:
+            with open(position_file, encoding="utf-8") as f:
+                start_position = int(f.read().strip())
+        except (FileNotFoundError, ValueError):
+            start_position = 0
+
+        start_position %= len(ids)
+        ordered_items = [
+            ((start_position + offset) % len(ids), ids[(start_position + offset) % len(ids)])
+            for offset in range(len(ids))
+        ]
+        max_attempts = min(10, len(ordered_items))
         last_error = None
         path = None
         video_id = None
         title = None
+        next_position = start_position
 
-        for candidate in candidates[:max_attempts]:
+        for item_position, candidate in ordered_items[:max_attempts]:
             try:
                 candidate_title = get_title(candidate, cookies) or "بث مباشر"
                 today = datetime.date.today().isoformat()
@@ -207,7 +217,10 @@ def main():
                 )
                 candidate_title = candidate_title[:MAX_TITLE]
 
-                log(f"تجربة الفيديو: {candidate} — {candidate_title}")
+                log(
+                    f"تجربة الفيديو رقم {item_position + 1} من القائمة: "
+                    f"{candidate} — {candidate_title}"
+                )
                 candidate_path = download_video(
                     candidate, cookies, work, cfg["video_format"]
                 )
@@ -215,14 +228,15 @@ def main():
                 video_id = candidate
                 title = candidate_title
                 path = candidate_path
+                next_position = (item_position + 1) % len(ids)
                 break
             except subprocess.CalledProcessError as exc:
                 last_error = exc
                 detail = (exc.stderr or exc.stdout or str(exc)).strip()
-                log(f"تعذر استخدام الفيديو {candidate}; تجربة فيديو آخر. {detail[:500]}")
+                log(f"تعذر استخدام الفيديو {candidate}; تجربة الفيديو التالي. {detail[:500]}")
             except Exception as exc:
                 last_error = exc
-                log(f"تعذر استخدام الفيديو {candidate}; تجربة فيديو آخر. {exc}")
+                log(f"تعذر استخدام الفيديو {candidate}; تجربة الفيديو التالي. {exc}")
 
         if not path:
             raise RuntimeError(
@@ -244,7 +258,10 @@ def main():
 
         log("بدء الدفع عبر FFmpeg... (سيتحول البث إلى مباشر تلقائيًا)")
         stream_ffmpeg(path, ingest_url, cfg.get("reencode", True))
-        log("انتهى البث.")
+
+        with open(position_file, "w", encoding="utf-8") as f:
+            f.write(str(next_position))
+        log(f"انتهى البث. الفيديو التالي في القائمة: {next_position + 1}")
 
         tg_send(cfg, f"✅ انتهى البث\nالقناة: {channel_name}\nالعنوان: {title}")
 
