@@ -3,11 +3,11 @@ name: YTLIVE Scheduler Bridge
 on:
   workflow_dispatch:
   schedule:
-    - cron: "7 20 * * *"
+    - cron: "7 16 * * *"
       timezone: "Europe/Rome"
-    - cron: "17 20 * * *"
+    - cron: "17 16 * * *"
       timezone: "Europe/Rome"
-    - cron: "27 20 * * *"
+    - cron: "27 16 * * *"
       timezone: "Europe/Rome"
 
 permissions:
@@ -40,7 +40,9 @@ jobs:
           )
 
           ACTIVE_RUNS="$(
-            curl --fail-with-body --silent --show-error --location               "${HEADERS[@]}"               "$API/actions/workflows/daily_live.yml/runs?branch=main&per_page=20" |
+            curl --fail-with-body --silent --show-error --location \
+              "${HEADERS[@]}" \
+              "$API/actions/workflows/daily_live.yml/runs?branch=main&per_page=20" |
             python -c 'import json,sys; data=json.load(sys.stdin); print(sum(run.get("status") in {"queued","in_progress","pending","waiting","requested"} for run in data.get("workflow_runs", [])))'
           )"
 
@@ -49,6 +51,11 @@ jobs:
             exit 0
           fi
 
-          curl --fail-with-body --silent --show-error --location             --request POST             "${HEADERS[@]}"             --header "Content-Type: application/json"             "$API/actions/workflows/daily_live.yml/dispatches"             --data '{"ref":"main"}'
+          curl --fail-with-body --silent --show-error --location \
+            --request POST \
+            "${HEADERS[@]}" \
+            --header "Content-Type: application/json" \
+            "$API/actions/workflows/daily_live.yml/dispatches" \
+            --data '{"ref":"main"}'
 
           echo "Daily YouTube Live dispatch accepted."
