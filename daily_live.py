@@ -190,14 +190,46 @@ def main():
         if not ids:
             raise RuntimeError("لا توجد فيديوهات في القناة.")
 
-        video_id = random.choice(ids)
-        raw_title = get_title(video_id, cookies) or "بث مباشر"
-        today = datetime.date.today().isoformat()
-        title = cinfo.get("title_template", "{title}").format(title=raw_title, date=today)
-        title = title[:MAX_TITLE]
-        log(f"الفيديو المختار: {video_id} — {title}")
+        candidates = ids[:]
+        random.shuffle(candidates)
+        max_attempts = min(10, len(candidates))
+        last_error = None
+        path = None
+        video_id = None
+        title = None
 
-        path = download_video(video_id, cookies, work, cfg["video_format"])
+        for candidate in candidates[:max_attempts]:
+            try:
+                candidate_title = get_title(candidate, cookies) or "بث مباشر"
+                today = datetime.date.today().isoformat()
+                candidate_title = cinfo.get("title_template", "{title}").format(
+                    title=candidate_title, date=today
+                )
+                candidate_title = candidate_title[:MAX_TITLE]
+
+                log(f"تجربة الفيديو: {candidate} — {candidate_title}")
+                candidate_path = download_video(
+                    candidate, cookies, work, cfg["video_format"]
+                )
+
+                video_id = candidate
+                title = candidate_title
+                path = candidate_path
+                break
+            except subprocess.CalledProcessError as exc:
+                last_error = exc
+                detail = (exc.stderr or exc.stdout or str(exc)).strip()
+                log(f"تعذر استخدام الفيديو {candidate}; تجربة فيديو آخر. {detail[:500]}")
+            except Exception as exc:
+                last_error = exc
+                log(f"تعذر استخدام الفيديو {candidate}; تجربة فيديو آخر. {exc}")
+
+        if not path:
+            raise RuntimeError(
+                f"تعذر إيجاد فيديو صالح بعد {max_attempts} محاولات: {last_error}"
+            )
+
+        log(f"الفيديو المختار: {video_id} — {title}")
         log(f"تم التنزيل: {path}")
 
         creds = get_credentials(cfg, channel)
