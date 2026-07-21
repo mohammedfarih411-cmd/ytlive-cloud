@@ -12,6 +12,8 @@ concurrency:
 
 jobs:
   stream:
+    # Free-only guard: do not allocate a hosted runner if the repository becomes private.
+    if: ${{ github.event.repository.private == false }}
     name: Stream Daily Channel
     runs-on: ubuntu-latest
     timeout-minutes: 355
