@@ -20,6 +20,8 @@ concurrency:
 
 jobs:
   dispatch-live:
+    # Free-only guard: do not allocate a hosted runner if the repository becomes private.
+    if: ${{ github.event.repository.private == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
 
