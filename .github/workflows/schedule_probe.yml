@@ -3,12 +3,11 @@ name: YTLIVE Scheduler Bridge
 on:
   workflow_dispatch:
   schedule:
-    - cron: "7 16 * * *"
-      timezone: "Europe/Rome"
-    - cron: "17 16 * * *"
-      timezone: "Europe/Rome"
-    - cron: "27 16 * * *"
-      timezone: "Europe/Rome"
+    # GitHub schedules are registered most reliably in UTC.
+    # During summer in Rome, 14:07 UTC = 16:07 Europe/Rome.
+    - cron: "7 14 * * *"
+    - cron: "17 14 * * *"
+    - cron: "27 14 * * *"
 
 permissions:
   actions: write
