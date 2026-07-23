@@ -3,8 +3,9 @@ name: YTLIVE Scheduler Bridge
 on:
   workflow_dispatch:
   schedule:
-    # GitHub schedules are registered most reliably in UTC.
+    # GitHub schedules are registered in UTC.
     # During summer in Rome, 14:07 UTC = 16:07 Europe/Rome.
+    # Three guarded attempts reduce the impact of delayed cron delivery.
     - cron: "7 14 * * *"
     - cron: "17 14 * * *"
     - cron: "27 14 * * *"
@@ -37,7 +38,7 @@ jobs:
           HEADERS=(
             --header "Accept: application/vnd.github+json"
             --header "Authorization: Bearer $GH_TOKEN"
-            --header "X-GitHub-Api-Version: 2026-03-10"
+            --header "X-GitHub-Api-Version: 2022-11-28"
           )
 
           ACTIVE_RUNS="$(
@@ -46,6 +47,8 @@ jobs:
               "$API/actions/workflows/daily_live.yml/runs?branch=main&per_page=20" |
             python -c 'import json,sys; data=json.load(sys.stdin); print(sum(run.get("status") in {"queued","in_progress","pending","waiting","requested"} for run in data.get("workflow_runs", [])))'
           )"
+
+          echo "Active Daily YouTube Live runs: $ACTIVE_RUNS"
 
           if [ "$ACTIVE_RUNS" -gt 0 ]; then
             echo "Daily YouTube Live is already active; skipping duplicate dispatch."
