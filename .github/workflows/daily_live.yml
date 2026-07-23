@@ -2,6 +2,9 @@ name: Daily YouTube Live
 
 on:
   workflow_dispatch:
+  schedule:
+    # GitHub schedules use UTC. 14:07 UTC = 16:07 in Italy during summer.
+    - cron: "7 14 * * *"
 
 permissions:
   contents: read
