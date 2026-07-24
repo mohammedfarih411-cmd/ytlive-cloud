@@ -1,5 +1,5 @@
 {
-  "_ملاحظة": "انسخ هذا الملف باسم config.json وعدّل القيم. لا تشارك config.json مع أحد.",
+  "_ملاحظة": "إعداد بث قناة واحدة يوميًا بالتناوب لمدة 3 ساعات.",
   "schedule_order": [
     "channel11",
     "channel12",
@@ -7,7 +7,6 @@
     "channel14"
   ],
   "epoch_date": "2026-07-14",
-  "cookies_file": "cookies.txt",
   "work_dir": "work",
   "video_format": "bv*[height<=1080]+ba/b[height<=1080]/b",
   "reencode": true,
@@ -20,7 +19,7 @@
     "channel11": {
       "name": "رمال النجاة",
       "youtube_channel_url": "https://www.youtube.com/@vlh-p8k/videos",
-      "token_file": "token_channel1.json",
+      "cookies_file": "cookies_rimal.txt",
       "title_template": "{title}",
       "description": "بث مباشر يومي",
       "privacy": "public",
@@ -29,7 +28,7 @@
     "channel12": {
       "name": "Sands of Survival",
       "youtube_channel_url": "https://www.youtube.com/@vlh-p8k/videos",
-      "token_file": "token_channel2.json",
+      "cookies_file": "cookies_sands.txt",
       "title_template": "{title}",
       "description": "Daily live stream",
       "privacy": "public",
@@ -38,7 +37,7 @@
     "channel13": {
       "name": "أصوات الجريمة",
       "youtube_channel_url": "https://www.youtube.com/@أصواتالجريمة-ي9ش/videos",
-      "token_file": "token_channel3.json",
+      "cookies_file": "cookies_crime.txt",
       "title_template": "{title}",
       "description": "بث مباشر يومي",
       "privacy": "public",
@@ -47,7 +46,7 @@
     "channel14": {
       "name": "Voices of Crime",
       "youtube_channel_url": "https://www.youtube.com/@VoicesofCrime-b9t/videos",
-      "token_file": "token_channel4.json",
+      "cookies_file": "cookies_voices.txt",
       "title_template": "{title}",
       "description": "Daily live stream",
       "privacy": "public",
