@@ -3,8 +3,10 @@ name: Daily YouTube Live
 on:
   workflow_dispatch:
   schedule:
-    # GitHub schedules use UTC. 14:07 UTC = 16:07 in Italy during summer.
-    - cron: "7 14 * * *"
+    # Run at both possible UTC equivalents of 20:00 Europe/Rome.
+    # The timezone guard below allows only the correct one through.
+    - cron: "0 18 * * *"
+    - cron: "0 19 * * *"
 
 permissions:
   contents: read
@@ -15,13 +17,22 @@ concurrency:
 
 jobs:
   stream:
-    # Free-only guard: do not allocate a hosted runner if the repository becomes private.
     if: ${{ github.event.repository.private == false }}
     name: Stream Daily Channel
     runs-on: ubuntu-latest
-    timeout-minutes: 355
+    timeout-minutes: 190
 
     steps:
+      - name: Check Rome start time
+        if: ${{ github.event_name == 'schedule' }}
+        run: |
+          ROME_HOUR=$(TZ=Europe/Rome date +%H)
+          echo "Current hour in Rome: $ROME_HOUR"
+          if [ "$ROME_HOUR" != "20" ]; then
+            echo "Not 20:00 in Rome; stopping this duplicate DST schedule."
+            exit 78
+          fi
+
       - name: Download repository
         uses: actions/checkout@v4
 
@@ -48,19 +59,28 @@ jobs:
 
       - name: Restore private files
         env:
-          COOKIES_B64: ${{ secrets.COOKIES_B64 }}
+          COOKIES_RIMAL_B64: ${{ secrets.COOKIES_RIMAL_B64 }}
+          COOKIES_SANDS_B64: ${{ secrets.COOKIES_SANDS_B64 }}
+          COOKIES_CRIME_B64: ${{ secrets.COOKIES_CRIME_B64 }}
+          COOKIES_VOICES_B64: ${{ secrets.COOKIES_VOICES_B64 }}
           TOKEN_CHANNEL11_B64: ${{ secrets.TOKEN_CHANNEL11_B64 }}
           TOKEN_CHANNEL12_B64: ${{ secrets.TOKEN_CHANNEL12_B64 }}
           TOKEN_CHANNEL13_B64: ${{ secrets.TOKEN_CHANNEL13_B64 }}
           TOKEN_CHANNEL14_B64: ${{ secrets.TOKEN_CHANNEL14_B64 }}
         run: |
-          printf '%s' "$COOKIES_B64" | base64 --decode > cookies.txt
+          printf '%s' "$COOKIES_RIMAL_B64" | base64 --decode > cookies_rimal.txt
+          printf '%s' "$COOKIES_SANDS_B64" | base64 --decode > cookies_sands.txt
+          printf '%s' "$COOKIES_CRIME_B64" | base64 --decode > cookies_crime.txt
+          printf '%s' "$COOKIES_VOICES_B64" | base64 --decode > cookies_voices.txt
           printf '%s' "$TOKEN_CHANNEL11_B64" | base64 --decode > token_channel11.json
           printf '%s' "$TOKEN_CHANNEL12_B64" | base64 --decode > token_channel12.json
           printf '%s' "$TOKEN_CHANNEL13_B64" | base64 --decode > token_channel13.json
           printf '%s' "$TOKEN_CHANNEL14_B64" | base64 --decode > token_channel14.json
 
-          test -s cookies.txt
+          test -s cookies_rimal.txt
+          test -s cookies_sands.txt
+          test -s cookies_crime.txt
+          test -s cookies_voices.txt
           test -s token_channel11.json
           test -s token_channel12.json
           test -s token_channel13.json
@@ -71,12 +91,12 @@ jobs:
           python -m json.tool config.json > /dev/null
           python -c "import json; d=json.load(open('config.json',encoding='utf-8')); print('Channels:', list(d['channels'].keys()))"
 
-      - name: Start daily live stream
+      - name: Start three-hour live stream
         env:
           PYTHONUTF8: "1"
           PYTHONIOENCODING: "utf-8"
         run: |
-          END_TIME=$((SECONDS + 20400))
+          END_TIME=$((SECONDS + 10800))
 
           while [ "$SECONDS" -lt "$END_TIME" ]; do
             echo "Starting the next live video..."
@@ -95,4 +115,4 @@ jobs:
             fi
           done
 
-          echo "Maximum daily streaming time completed."
+          echo "Three-hour daily streaming limit completed."
