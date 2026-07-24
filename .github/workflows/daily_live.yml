@@ -3,8 +3,7 @@ name: Daily YouTube Live
 on:
   workflow_dispatch:
   schedule:
-    # Run at both possible UTC equivalents of 20:00 Europe/Rome.
-    # The timezone guard below allows only the correct one through.
+    # 20:00 Europe/Rome is 18:00 UTC in summer and 19:00 UTC in winter.
     - cron: "0 18 * * *"
     - cron: "0 19 * * *"
 
@@ -16,23 +15,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    name: Check Rome start time
+    runs-on: ubuntu-latest
+    outputs:
+      run_stream: ${{ steps.check.outputs.run_stream }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run_stream=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          ROME_HOUR=$(TZ=Europe/Rome date +%H)
+          echo "Current hour in Rome: $ROME_HOUR"
+          if [ "$ROME_HOUR" = "20" ]; then
+            echo "run_stream=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_stream=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping duplicate daylight-saving schedule."
+          fi
+
   stream:
-    if: ${{ github.event.repository.private == false }}
+    needs: gate
+    if: ${{ github.event.repository.private == false && needs.gate.outputs.run_stream == 'true' }}
     name: Stream Daily Channel
     runs-on: ubuntu-latest
     timeout-minutes: 190
 
     steps:
-      - name: Check Rome start time
-        if: ${{ github.event_name == 'schedule' }}
-        run: |
-          ROME_HOUR=$(TZ=Europe/Rome date +%H)
-          echo "Current hour in Rome: $ROME_HOUR"
-          if [ "$ROME_HOUR" != "20" ]; then
-            echo "Not 20:00 in Rome; stopping this duplicate DST schedule."
-            exit 78
-          fi
-
       - name: Download repository
         uses: actions/checkout@v4
 
