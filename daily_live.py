@@ -27,7 +27,7 @@ import notify
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
-MAX_TITLE = 100  # الحد الأقصى لعنوان يوتيوب
+MAX_TITLE = 100
 
 
 def log(msg):
@@ -179,7 +179,7 @@ def main():
         channel = pick_today_channel(cfg)
         cinfo = cfg["channels"][channel]
         channel_name = cinfo["name"]
-        cookies = os.path.join(BASE, cfg["cookies_file"])
+        cookies = os.path.join(BASE, cinfo["cookies_file"])
         work = cfg["work_dir"]
         os.makedirs(work, exist_ok=True)
 
