@@ -1,5 +1,5 @@
 {
-  "_ملاحظة": "إعداد بث قناة واحدة يوميًا بالتناوب لمدة 3 ساعات.",
+  "_ملاحظة": "إعداد بث قناة واحدة يوميًا بالتناوب لمدة 3 ساعات دون تيليجرام.",
   "schedule_order": [
     "channel11",
     "channel12",
@@ -10,11 +10,6 @@
   "work_dir": "work",
   "video_format": "bv*[height<=1080]+ba/b[height<=1080]/b",
   "reencode": true,
-  "telegram": {
-    "enabled": false,
-    "bot_token": "ضع_توكن_البوت_هنا",
-    "chat_id": "ضع_chat_id_هنا"
-  },
   "channels": {
     "channel11": {
       "name": "رمال النجاة",
