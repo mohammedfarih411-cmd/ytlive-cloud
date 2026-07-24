@@ -1,29 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-daily_live.py — النظام الرئيسي للبث المباشر اليومي التلقائي.
+"""النظام الرئيسي للبث المباشر اليومي التلقائي دون إشعارات خارجية."""
 
-الخطوات:
-  1) تحديد قناة اليوم بالتناوب (دورة من أربع قنوات).
-  2) سحب قائمة فيديوهات القناة عبر yt-dlp ثم اختيار واحد عشوائيًا.
-  3) تنزيل الفيديو المختار.
-  4) إنشاء بث مباشر جديد بعنوانٍ خاص عبر YouTube Live API (تشغيل/إيقاف تلقائي).
-  5) دفع الفيديو عبر FFmpeg إلى عنوان الإدخال (RTMP).
-  6) إرسال إشعارات تيليجرام (بدء / انتهاء / خطأ).
-"""
-
-import os
-import sys
-import json
-import glob
 import datetime
+import glob
+import json
+import os
 import subprocess
+import sys
 
-from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-
-import notify
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
@@ -40,22 +28,14 @@ def load_config():
         return json.load(f)
 
 
-def tg_send(cfg, text):
-    tg = (cfg or {}).get("telegram", {})
-    if not tg.get("enabled"):
-        return
-    notify.send_telegram(tg.get("bot_token"), tg.get("chat_id"), text)
-
-
 def pick_today_channel(cfg):
     order = cfg["schedule_order"]
     epoch = datetime.date.fromisoformat(cfg["epoch_date"])
     today = datetime.date.today()
-    idx = (today - epoch).days % len(order)
-    return order[idx]
+    return order[(today - epoch).days % len(order)]
 
 
-def get_credentials(cfg, channel):
+def get_credentials(channel):
     token_file = os.path.join(BASE, f"token_{channel}.json")
     creds = Credentials.from_authorized_user_file(token_file, SCOPES)
     if not creds.valid:
@@ -68,51 +48,53 @@ def get_credentials(cfg, channel):
     return creds
 
 
-def _channel_videos_url(url):
+def channel_videos_url(url):
     if "/videos" not in url and "playlist" not in url:
         return url.rstrip("/") + "/videos"
     return url
 
 
 def list_channel_videos(channel_url, cookies_file):
-    url = _channel_videos_url(channel_url)
     cmd = [
         "yt-dlp", "--flat-playlist", "--playlist-end", "200",
-        "--print", "%(id)s",
-        "--cookies", cookies_file, url,
+        "--print", "%(id)s", "--cookies", cookies_file,
+        channel_videos_url(channel_url),
     ]
-    out = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return [line.strip() for line in out.stdout.splitlines() if line.strip()]
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
 def get_title(video_id, cookies_file):
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    cmd = ["yt-dlp", "--skip-download", "--print", "%(title)s",
-           "--cookies", cookies_file, url]
-    out = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return out.stdout.strip()
+    cmd = [
+        "yt-dlp", "--skip-download", "--print", "%(title)s",
+        "--cookies", cookies_file,
+        f"https://www.youtube.com/watch?v={video_id}",
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    return result.stdout.strip()
 
 
 def download_video(video_id, cookies_file, work_dir, fmt):
-    for f in glob.glob(os.path.join(work_dir, "today.*")):
-        os.remove(f)
-    url = f"https://www.youtube.com/watch?v={video_id}"
+    for path in glob.glob(os.path.join(work_dir, "today.*")):
+        os.remove(path)
+
     cmd = [
         "yt-dlp", "-f", fmt, "--cookies", cookies_file,
         "--merge-output-format", "mp4",
-        "-o", os.path.join(work_dir, "today.%(ext)s"), url,
+        "-o", os.path.join(work_dir, "today.%(ext)s"),
+        f"https://www.youtube.com/watch?v={video_id}",
     ]
     subprocess.run(cmd, check=True)
+
     files = glob.glob(os.path.join(work_dir, "today.*"))
     if not files:
         raise RuntimeError("فشل التنزيل: لا يوجد ملف ناتج.")
-    files.sort(key=lambda p: (not p.endswith(".mp4"), p))
+    files.sort(key=lambda path: (not path.endswith(".mp4"), path))
     return files[0]
 
 
 def create_live(youtube, title, description, privacy):
     now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-
     broadcast = youtube.liveBroadcasts().insert(
         part="snippet,status,contentDetails",
         body={
@@ -131,7 +113,6 @@ def create_live(youtube, title, description, privacy):
             },
         },
     ).execute()
-    broadcast_id = broadcast["id"]
 
     stream = youtube.liveStreams().insert(
         part="snippet,cdn,contentDetails",
@@ -145,15 +126,15 @@ def create_live(youtube, title, description, privacy):
             "contentDetails": {"isReusable": False},
         },
     ).execute()
-    stream_id = stream["id"]
+
     info = stream["cdn"]["ingestionInfo"]
     ingest_url = info["ingestionAddress"] + "/" + info["streamName"]
-
     youtube.liveBroadcasts().bind(
-        id=broadcast_id, part="id,contentDetails", streamId=stream_id
+        id=broadcast["id"],
+        part="id,contentDetails",
+        streamId=stream["id"],
     ).execute()
-
-    return broadcast_id, ingest_url
+    return broadcast["id"], ingest_url
 
 
 def stream_ffmpeg(video_path, ingest_url, reencode):
@@ -167,107 +148,86 @@ def stream_ffmpeg(video_path, ingest_url, reencode):
             "-f", "flv", ingest_url,
         ]
     else:
-        cmd = ["ffmpeg", "-re", "-i", video_path, "-c", "copy",
-               "-f", "flv", ingest_url]
+        cmd = [
+            "ffmpeg", "-re", "-i", video_path,
+            "-c", "copy", "-f", "flv", ingest_url,
+        ]
     subprocess.run(cmd, check=True)
+
+
+def select_video(cfg, channel, cinfo, cookies, work):
+    ids = list_channel_videos(cinfo["youtube_channel_url"], cookies)
+    if not ids:
+        raise RuntimeError("لا توجد فيديوهات في القناة.")
+
+    position_file = os.path.join(work, f"playlist_position_{channel}.txt")
+    try:
+        with open(position_file, encoding="utf-8") as f:
+            start_position = int(f.read().strip())
+    except (FileNotFoundError, ValueError):
+        start_position = 0
+
+    start_position %= len(ids)
+    max_attempts = min(10, len(ids))
+    last_error = None
+
+    for offset in range(max_attempts):
+        position = (start_position + offset) % len(ids)
+        candidate = ids[position]
+        try:
+            title = get_title(candidate, cookies) or "بث مباشر"
+            title = cinfo.get("title_template", "{title}").format(
+                title=title,
+                date=datetime.date.today().isoformat(),
+            )[:MAX_TITLE]
+            log(f"تجربة الفيديو رقم {position + 1}: {candidate} — {title}")
+            path = download_video(candidate, cookies, work, cfg["video_format"])
+            return candidate, title, path, position_file, (position + 1) % len(ids)
+        except subprocess.CalledProcessError as exc:
+            last_error = exc
+            detail = (exc.stderr or exc.stdout or str(exc)).strip()
+            log(f"تعذر استخدام الفيديو {candidate}. تجربة التالي. {detail[:500]}")
+        except Exception as exc:
+            last_error = exc
+            log(f"تعذر استخدام الفيديو {candidate}. تجربة التالي. {exc}")
+
+    raise RuntimeError(
+        f"تعذر إيجاد فيديو صالح بعد {max_attempts} محاولات: {last_error}"
+    )
 
 
 def main():
     cfg = load_config()
-    channel_name = "?"
     try:
         channel = pick_today_channel(cfg)
         cinfo = cfg["channels"][channel]
-        channel_name = cinfo["name"]
         cookies = os.path.join(BASE, cinfo["cookies_file"])
         work = cfg["work_dir"]
         os.makedirs(work, exist_ok=True)
 
-        log(f"قناة اليوم: {channel_name} ({channel})")
-
-        ids = list_channel_videos(cinfo["youtube_channel_url"], cookies)
-        if not ids:
-            raise RuntimeError("لا توجد فيديوهات في القناة.")
-
-        position_file = os.path.join(work, f"playlist_position_{channel}.txt")
-        try:
-            with open(position_file, encoding="utf-8") as f:
-                start_position = int(f.read().strip())
-        except (FileNotFoundError, ValueError):
-            start_position = 0
-
-        start_position %= len(ids)
-        ordered_items = [
-            ((start_position + offset) % len(ids), ids[(start_position + offset) % len(ids)])
-            for offset in range(len(ids))
-        ]
-        max_attempts = min(10, len(ordered_items))
-        last_error = None
-        path = None
-        video_id = None
-        title = None
-        next_position = start_position
-
-        for item_position, candidate in ordered_items[:max_attempts]:
-            try:
-                candidate_title = get_title(candidate, cookies) or "بث مباشر"
-                today = datetime.date.today().isoformat()
-                candidate_title = cinfo.get("title_template", "{title}").format(
-                    title=candidate_title, date=today
-                )
-                candidate_title = candidate_title[:MAX_TITLE]
-
-                log(
-                    f"تجربة الفيديو رقم {item_position + 1} من القائمة: "
-                    f"{candidate} — {candidate_title}"
-                )
-                candidate_path = download_video(
-                    candidate, cookies, work, cfg["video_format"]
-                )
-
-                video_id = candidate
-                title = candidate_title
-                path = candidate_path
-                next_position = (item_position + 1) % len(ids)
-                break
-            except subprocess.CalledProcessError as exc:
-                last_error = exc
-                detail = (exc.stderr or exc.stdout or str(exc)).strip()
-                log(f"تعذر استخدام الفيديو {candidate}; تجربة الفيديو التالي. {detail[:500]}")
-            except Exception as exc:
-                last_error = exc
-                log(f"تعذر استخدام الفيديو {candidate}; تجربة الفيديو التالي. {exc}")
-
-        if not path:
-            raise RuntimeError(
-                f"تعذر إيجاد فيديو صالح بعد {max_attempts} محاولات: {last_error}"
-            )
-
+        log(f"قناة اليوم: {cinfo['name']} ({channel})")
+        video_id, title, path, position_file, next_position = select_video(
+            cfg, channel, cinfo, cookies, work
+        )
         log(f"الفيديو المختار: {video_id} — {title}")
         log(f"تم التنزيل: {path}")
 
-        creds = get_credentials(cfg, channel)
-        youtube = build("youtube", "v3", credentials=creds)
+        youtube = build("youtube", "v3", credentials=get_credentials(channel))
         broadcast_id, ingest_url = create_live(
-            youtube, title, cinfo.get("description", ""), cinfo.get("privacy", "public")
+            youtube,
+            title,
+            cinfo.get("description", ""),
+            cinfo.get("privacy", "public"),
         )
-        watch_url = f"https://www.youtube.com/watch?v={broadcast_id}"
-        log(f"تم إنشاء البث: {broadcast_id}")
-
-        tg_send(cfg, f"🔴 بدأ البث المباشر\nالقناة: {channel_name}\nالعنوان: {title}\n{watch_url}")
-
-        log("بدء الدفع عبر FFmpeg... (سيتحول البث إلى مباشر تلقائيًا)")
+        log(f"تم إنشاء البث: https://www.youtube.com/watch?v={broadcast_id}")
+        log("بدء الدفع عبر FFmpeg...")
         stream_ffmpeg(path, ingest_url, cfg.get("reencode", True))
 
         with open(position_file, "w", encoding="utf-8") as f:
             f.write(str(next_position))
         log(f"انتهى البث. الفيديو التالي في القائمة: {next_position + 1}")
-
-        tg_send(cfg, f"✅ انتهى البث\nالقناة: {channel_name}\nالعنوان: {title}")
-
-    except Exception as e:
-        log(f"خطأ: {e}")
-        tg_send(cfg, f"⚠️ خطأ في نظام البث\nالقناة: {channel_name}\nالتفاصيل: {e}")
+    except Exception as exc:
+        log(f"خطأ: {exc}")
         sys.exit(1)
 
 
