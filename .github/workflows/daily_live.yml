@@ -29,13 +29,21 @@ jobs:
             exit 0
           fi
 
-          ROME_HOUR=$(TZ=Europe/Rome date +%H)
-          echo "Current hour in Rome: $ROME_HOUR"
-          if [ "$ROME_HOUR" = "20" ]; then
+          # GitHub may start scheduled workflows several hours late. Select the
+          # correct UTC cron from Rome's current UTC offset instead of requiring
+          # the runner to begin during the exact 20:00 local hour.
+          ROME_OFFSET=$(TZ=Europe/Rome date +%z)
+          TRIGGERED_SCHEDULE='${{ github.event.schedule }}'
+          echo "Rome UTC offset: $ROME_OFFSET"
+          echo "Triggered schedule: $TRIGGERED_SCHEDULE"
+
+          if { [ "$ROME_OFFSET" = "+0200" ] && [ "$TRIGGERED_SCHEDULE" = "0 18 * * *" ]; } || \
+             { [ "$ROME_OFFSET" = "+0100" ] && [ "$TRIGGERED_SCHEDULE" = "0 19 * * *" ]; }; then
             echo "run_stream=true" >> "$GITHUB_OUTPUT"
+            echo "Selected the correct Rome 20:00 schedule; delayed execution is allowed."
           else
             echo "run_stream=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping duplicate daylight-saving schedule."
+            echo "Skipping the duplicate daylight-saving schedule."
           fi
 
   stream:
