@@ -3,9 +3,9 @@ name: Daily YouTube Live
 on:
   workflow_dispatch:
   schedule:
-    # 20:00 Europe/Rome is 18:00 UTC in summer and 19:00 UTC in winter.
+    # One daily trigger: 20:00 Europe/Rome during daylight-saving time.
+    # GitHub cron uses UTC, so this runs at 19:00 in Rome during winter.
     - cron: "0 18 * * *"
-    - cron: "0 19 * * *"
 
 permissions:
   contents: read
@@ -24,27 +24,8 @@ jobs:
       - id: check
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "run_stream=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # GitHub may start scheduled workflows several hours late. Select the
-          # correct UTC cron from Rome's current UTC offset instead of requiring
-          # the runner to begin during the exact 20:00 local hour.
-          ROME_OFFSET=$(TZ=Europe/Rome date +%z)
-          TRIGGERED_SCHEDULE='${{ github.event.schedule }}'
-          echo "Rome UTC offset: $ROME_OFFSET"
-          echo "Triggered schedule: $TRIGGERED_SCHEDULE"
-
-          if { [ "$ROME_OFFSET" = "+0200" ] && [ "$TRIGGERED_SCHEDULE" = "0 18 * * *" ]; } || \
-             { [ "$ROME_OFFSET" = "+0100" ] && [ "$TRIGGERED_SCHEDULE" = "0 19 * * *" ]; }; then
-            echo "run_stream=true" >> "$GITHUB_OUTPUT"
-            echo "Selected the correct Rome 20:00 schedule; delayed execution is allowed."
-          else
-            echo "run_stream=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping the duplicate daylight-saving schedule."
-          fi
+          echo "run_stream=true" >> "$GITHUB_OUTPUT"
+          echo "Single daily schedule accepted; delayed execution is allowed."
 
   stream:
     needs: gate
