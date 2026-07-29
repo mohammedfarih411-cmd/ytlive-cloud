@@ -50,7 +50,7 @@ jobs:
           TOKEN_CHANNEL14_B64: ${{ secrets.TOKEN_CHANNEL14_B64 }}
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
 
           restore_secret() {
             local secret_name="$1"
@@ -59,13 +59,13 @@ jobs:
             local normalized_value
             local temporary_path="${output_path}.tmp"
 
+            rm -f "$output_path" "$temporary_path"
             if [ -z "$secret_value" ]; then
-              echo "::error title=Missing GitHub secret::${secret_name} is empty."
+              echo "::warning title=Unavailable channel credential::${secret_name} is empty."
               return 1
             fi
 
             normalized_value="$(printf '%s' "$secret_value" | tr -d '\r\n\t ')"
-
             if [[ "$normalized_value" =~ ^[A-Za-z0-9+/]+={0,2}$ ]] &&
               (( ${#normalized_value} % 4 == 0 )) &&
               printf '%s' "$normalized_value" | base64 --decode > "$temporary_path" 2>/dev/null; then
@@ -76,28 +76,23 @@ jobs:
             fi
 
             if [ ! -s "$temporary_path" ]; then
-              echo "::error title=Invalid GitHub secret::${secret_name} produced an empty file."
+              echo "::warning title=Invalid channel credential::${secret_name} produced an empty file."
               rm -f "$temporary_path"
               return 1
             fi
 
             mv "$temporary_path" "$output_path"
             chmod 600 "$output_path"
-            echo "Restored ${output_path} from ${secret_name}."
           }
 
           validate_cookie_file() {
             local secret_name="$1"
             local cookie_path="$2"
-            local header
-            local counts
-            local valid_rows
-            local invalid_rows
+            local header counts valid_rows invalid_rows
 
             header="$(head -n 1 "$cookie_path" | sed $'s/^\xEF\xBB\xBF//' | tr -d '\r')"
-
             if [[ "$header" != "# Netscape HTTP Cookie File"* ]]; then
-              echo "::error title=Invalid cookie secret::${secret_name} is not a complete Netscape cookies.txt file. Re-export fresh YouTube cookies in Netscape format, Base64-encode the entire file, and replace this secret."
+              echo "::warning title=Skipping malformed cookie secret::${secret_name} is not a complete Netscape cookies.txt file."
               return 1
             fi
 
@@ -106,46 +101,69 @@ jobs:
               {
                 sub(/\r$/, "")
                 if ($0 ~ /^[[:space:]]*$/) next
-                if ($0 ~ /^#HttpOnly_/) {
-                  if (NF >= 7) valid++; else invalid++
-                  next
-                }
+                if ($0 ~ /^#HttpOnly_/) { if (NF >= 7) valid++; else invalid++; next }
                 if ($0 ~ /^[[:space:]]*#/) next
                 if (NF >= 7) valid++; else invalid++
               }
               END { printf "%d %d", valid, invalid }
             ' "$cookie_path")"
             read -r valid_rows invalid_rows <<< "$counts"
-
-            if (( invalid_rows > 0 )); then
-              echo "::error title=Invalid cookie secret::${secret_name} contains ${invalid_rows} malformed cookie row(s). Re-export fresh YouTube cookies and replace this secret."
+            if (( invalid_rows > 0 || valid_rows == 0 )); then
+              echo "::warning title=Skipping malformed cookie secret::${secret_name} has ${valid_rows} valid and ${invalid_rows} malformed Netscape row(s)."
               return 1
             fi
-
-            if (( valid_rows == 0 )); then
-              echo "::error title=Invalid cookie secret::${secret_name} contains no valid Netscape cookie rows. Re-export fresh YouTube cookies and replace this secret."
-              return 1
-            fi
-
-            echo "Validated ${secret_name}: ${valid_rows} Netscape cookie row(s). YouTube will verify cookie freshness at runtime."
+            echo "Validated ${secret_name}: ${valid_rows} Netscape cookie row(s)."
           }
 
-          restore_secret "COOKIES_RIMAL_B64" "$COOKIES_RIMAL_B64" "cookies_rimal.txt"
-          validate_cookie_file "COOKIES_RIMAL_B64" "cookies_rimal.txt"
+          validate_token_file() {
+            local secret_name="$1"
+            local token_path="$2"
+            if ! python3 - "$token_path" <<'PY'
+          import json
+          import sys
+          path = sys.argv[1]
+          with open(path, encoding="utf-8") as handle:
+              data = json.load(handle)
+          required = ("client_id", "client_secret", "refresh_token")
+          if not isinstance(data, dict) or any(not data.get(key) for key in required):
+              raise ValueError("OAuth token JSON lacks required fields")
+          PY
+            then
+              echo "::warning title=Skipping malformed token secret::${secret_name} is not a valid YouTube OAuth token JSON file."
+              return 1
+            fi
+            echo "Validated ${secret_name}."
+          }
 
-          restore_secret "COOKIES_SANDS_B64" "$COOKIES_SANDS_B64" "cookies_sands.txt"
-          validate_cookie_file "COOKIES_SANDS_B64" "cookies_sands.txt"
+          prepare_channel() {
+            local channel="$1" cookie_secret="$2" cookie_value="$3" cookie_path="$4"
+            local token_secret="$5" token_value="$6" token_path="$7"
 
-          restore_secret "COOKIES_CRIME_B64" "$COOKIES_CRIME_B64" "cookies_crime.txt"
-          validate_cookie_file "COOKIES_CRIME_B64" "cookies_crime.txt"
+            rm -f "$cookie_path" "$token_path"
+            if ! restore_secret "$cookie_secret" "$cookie_value" "$cookie_path" ||
+               ! validate_cookie_file "$cookie_secret" "$cookie_path" ||
+               ! restore_secret "$token_secret" "$token_value" "$token_path" ||
+               ! validate_token_file "$token_secret" "$token_path"; then
+              rm -f "$cookie_path" "$token_path"
+              echo "::warning title=Channel skipped::${channel} was disabled for this run because ${cookie_secret} or ${token_secret} is missing or malformed."
+              return 1
+            fi
 
-          restore_secret "COOKIES_VOICES_B64" "$COOKIES_VOICES_B64" "cookies_voices.txt"
-          validate_cookie_file "COOKIES_VOICES_B64" "cookies_voices.txt"
+            echo "Channel ${channel} is ready (${cookie_secret} + ${token_secret})."
+            return 0
+          }
 
-          restore_secret "TOKEN_CHANNEL11_B64" "$TOKEN_CHANNEL11_B64" "token_channel11.json"
-          restore_secret "TOKEN_CHANNEL12_B64" "$TOKEN_CHANNEL12_B64" "token_channel12.json"
-          restore_secret "TOKEN_CHANNEL13_B64" "$TOKEN_CHANNEL13_B64" "token_channel13.json"
-          restore_secret "TOKEN_CHANNEL14_B64" "$TOKEN_CHANNEL14_B64" "token_channel14.json"
+          usable_channels=0
+          prepare_channel channel11 COOKIES_RIMAL_B64 "$COOKIES_RIMAL_B64" cookies_rimal.txt TOKEN_CHANNEL11_B64 "$TOKEN_CHANNEL11_B64" token_channel11.json && usable_channels=$((usable_channels + 1))
+          prepare_channel channel12 COOKIES_SANDS_B64 "$COOKIES_SANDS_B64" cookies_sands.txt TOKEN_CHANNEL12_B64 "$TOKEN_CHANNEL12_B64" token_channel12.json && usable_channels=$((usable_channels + 1))
+          prepare_channel channel13 COOKIES_CRIME_B64 "$COOKIES_CRIME_B64" cookies_crime.txt TOKEN_CHANNEL13_B64 "$TOKEN_CHANNEL13_B64" token_channel13.json && usable_channels=$((usable_channels + 1))
+          prepare_channel channel14 COOKIES_VOICES_B64 "$COOKIES_VOICES_B64" cookies_voices.txt TOKEN_CHANNEL14_B64 "$TOKEN_CHANNEL14_B64" token_channel14.json && usable_channels=$((usable_channels + 1))
+
+          if (( usable_channels == 0 )); then
+            echo "::error title=No usable YouTube channel::All four cookie/token pairs are missing or malformed. Refresh at least one complete pair."
+            exit 1
+          fi
+          echo "Usable channels for this run: ${usable_channels}."
 
       - name: Set up Python
         uses: actions/setup-python@v5
