@@ -38,28 +38,7 @@ jobs:
       - name: Download repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Set up Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-
-      - name: Install FFmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
-      - name: Install Python packages
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install --upgrade "yt-dlp[default]"
-
-      - name: Restore private files
+      - name: Restore and validate private files
         env:
           COOKIES_RIMAL_B64: ${{ secrets.COOKIES_RIMAL_B64 }}
           COOKIES_SANDS_B64: ${{ secrets.COOKIES_SANDS_B64 }}
@@ -81,7 +60,7 @@ jobs:
             local temporary_path="${output_path}.tmp"
 
             if [ -z "$secret_value" ]; then
-              echo "::error::GitHub secret ${secret_name} is empty."
+              echo "::error title=Missing GitHub secret::${secret_name} is empty."
               return 1
             fi
 
@@ -97,7 +76,7 @@ jobs:
             fi
 
             if [ ! -s "$temporary_path" ]; then
-              echo "::error::GitHub secret ${secret_name} produced an empty file."
+              echo "::error title=Invalid GitHub secret::${secret_name} produced an empty file."
               rm -f "$temporary_path"
               return 1
             fi
@@ -107,14 +86,87 @@ jobs:
             echo "Restored ${output_path} from ${secret_name}."
           }
 
+          validate_cookie_file() {
+            local secret_name="$1"
+            local cookie_path="$2"
+            local header
+            local counts
+            local valid_rows
+            local invalid_rows
+
+            header="$(head -n 1 "$cookie_path" | sed $'s/^\xEF\xBB\xBF//' | tr -d '\r')"
+
+            if [[ "$header" != "# Netscape HTTP Cookie File"* ]]; then
+              echo "::error title=Invalid cookie secret::${secret_name} is not a complete Netscape cookies.txt file. Re-export fresh YouTube cookies in Netscape format, Base64-encode the entire file, and replace this secret."
+              return 1
+            fi
+
+            counts="$(awk -F '\t' '
+              BEGIN { valid = 0; invalid = 0 }
+              {
+                sub(/\r$/, "")
+                if ($0 ~ /^[[:space:]]*$/) next
+                if ($0 ~ /^#HttpOnly_/) {
+                  if (NF >= 7) valid++; else invalid++
+                  next
+                }
+                if ($0 ~ /^[[:space:]]*#/) next
+                if (NF >= 7) valid++; else invalid++
+              }
+              END { printf "%d %d", valid, invalid }
+            ' "$cookie_path")"
+            read -r valid_rows invalid_rows <<< "$counts"
+
+            if (( invalid_rows > 0 )); then
+              echo "::error title=Invalid cookie secret::${secret_name} contains ${invalid_rows} malformed cookie row(s). Re-export fresh YouTube cookies and replace this secret."
+              return 1
+            fi
+
+            if (( valid_rows == 0 )); then
+              echo "::error title=Invalid cookie secret::${secret_name} contains no valid Netscape cookie rows. Re-export fresh YouTube cookies and replace this secret."
+              return 1
+            fi
+
+            echo "Validated ${secret_name}: ${valid_rows} Netscape cookie row(s). YouTube will verify cookie freshness at runtime."
+          }
+
           restore_secret "COOKIES_RIMAL_B64" "$COOKIES_RIMAL_B64" "cookies_rimal.txt"
+          validate_cookie_file "COOKIES_RIMAL_B64" "cookies_rimal.txt"
+
           restore_secret "COOKIES_SANDS_B64" "$COOKIES_SANDS_B64" "cookies_sands.txt"
+          validate_cookie_file "COOKIES_SANDS_B64" "cookies_sands.txt"
+
           restore_secret "COOKIES_CRIME_B64" "$COOKIES_CRIME_B64" "cookies_crime.txt"
+          validate_cookie_file "COOKIES_CRIME_B64" "cookies_crime.txt"
+
           restore_secret "COOKIES_VOICES_B64" "$COOKIES_VOICES_B64" "cookies_voices.txt"
+          validate_cookie_file "COOKIES_VOICES_B64" "cookies_voices.txt"
+
           restore_secret "TOKEN_CHANNEL11_B64" "$TOKEN_CHANNEL11_B64" "token_channel11.json"
           restore_secret "TOKEN_CHANNEL12_B64" "$TOKEN_CHANNEL12_B64" "token_channel12.json"
           restore_secret "TOKEN_CHANNEL13_B64" "$TOKEN_CHANNEL13_B64" "token_channel13.json"
           restore_secret "TOKEN_CHANNEL14_B64" "$TOKEN_CHANNEL14_B64" "token_channel14.json"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install --upgrade "yt-dlp[default]"
 
       - name: Validate configuration
         run: |
