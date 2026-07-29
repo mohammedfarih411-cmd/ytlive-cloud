@@ -243,8 +243,16 @@ def main():
             cookies = os.path.join(BASE, cinfo["cookies_file"])
             log(f"تجربة القناة: {cinfo['name']} ({channel})")
             try:
+                if not os.path.isfile(cookies) or os.path.getsize(cookies) == 0:
+                    raise RuntimeError(
+                        f"ملف Cookies غير متاح لهذه القناة: {cinfo['cookies_file']}"
+                    )
+
+                # Validate OAuth before listing or downloading any video. This avoids
+                # spending time and bandwidth on a channel that cannot go live.
+                credentials = get_credentials(channel)
                 video = select_video(cfg, channel, cinfo, cookies, work)
-                selected = (channel, cinfo, cookies, video)
+                selected = (channel, cinfo, cookies, credentials, video)
                 break
             except Exception as exc:
                 failures.append(f"{channel}: {exc}")
@@ -252,16 +260,16 @@ def main():
 
         if selected is None:
             raise RuntimeError(
-                "تعذر العثور على فيديو صالح في جميع القنوات: "
+                "تعذر العثور على قناة جاهزة وفيديو صالح: "
                 + " | ".join(failures)
             )
 
-        channel, cinfo, cookies, video = selected
+        channel, cinfo, cookies, credentials, video = selected
         video_id, title, path, position_file, next_position = video
         log(f"الفيديو المختار: {video_id} — {title}")
         log(f"تم التنزيل: {path}")
 
-        youtube = build("youtube", "v3", credentials=get_credentials(channel))
+        youtube = build("youtube", "v3", credentials=credentials)
         broadcast_id, ingest_url = create_live(
             youtube,
             title,
