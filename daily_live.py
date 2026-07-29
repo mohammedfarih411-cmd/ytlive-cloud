@@ -111,16 +111,13 @@ def get_title(video_id, cookies_file):
         "yt-dlp", "--skip-download", "--print", "%(title)s",
         "--cookies", cookies_file,
         "--no-warnings",
-        "--verbose",
         *pot_extractor_args(),
         f"https://www.youtube.com/watch?v={video_id}",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "unknown yt-dlp error").strip()
-        pot_line = next((line for line in detail.splitlines() if "PO Token" in line), None)
-        pot_info = pot_line if pot_line else "POT line not found in log"
-        raise RuntimeError(f"get_title فشل لهذا الفيديو {video_id}: POT={pot_info} | {detail[:500]}")
+        raise RuntimeError(f"get_title فشل لهذا الفيديو {video_id}: {detail[:500]}")
     return result.stdout.strip()
  
  
@@ -132,7 +129,6 @@ def download_video(video_id, cookies_file, work_dir, fmt):
         "yt-dlp", "-f", fmt, "--cookies", cookies_file,
         "--merge-output-format", "mp4",
         "--no-warnings",
-        "--verbose",
         *pot_extractor_args(),
         "-o", os.path.join(work_dir, "today.%(ext)s"),
         f"https://www.youtube.com/watch?v={video_id}",
@@ -140,9 +136,7 @@ def download_video(video_id, cookies_file, work_dir, fmt):
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "unknown yt-dlp error").strip()
-        pot_line = next((line for line in detail.splitlines() if "PO Token" in line), None)
-        pot_info = pot_line if pot_line else "POT line not found in log"
-        raise RuntimeError(f"download_video فشل لهذا الفيديو {video_id}: POT={pot_info} | {detail[:500]}")
+        raise RuntimeError(f"download_video فشل لهذا الفيديو {video_id}: {detail[:500]}")
  
     files = glob.glob(os.path.join(work_dir, "today.*"))
     if not files:
