@@ -3,8 +3,8 @@ name: Daily YouTube Live
 on:
   workflow_dispatch:
   schedule:
-    # One daily trigger: 20:00 Europe/Rome during daylight-saving time.
-    # GitHub cron uses UTC, so this runs at 19:00 in Rome during winter.
+    # 20:00 Europe/Rome during daylight-saving time (18:00 UTC).
+    # During winter this runs at 19:00 Europe/Rome because GitHub cron uses UTC.
     - cron: "0 18 * * *"
 
 permissions:
@@ -87,43 +87,9 @@ jobs:
 
             normalized_value="$(printf '%s' "$secret_value" | tr -d '\r\n\t ')"
 
-            if printf '%s' "$normalized_value" |
-              grep -Eq '^[A-Za-z0-9+/]*={0,2}
-
-      - name: Validate configuration
-        run: |
-          python -m json.tool config.json > /dev/null
-          python -c "import json; d=json.load(open('config.json',encoding='utf-8')); print('Channels:', list(d['channels'].keys()))"
-
-      - name: Start three-hour live stream
-        env:
-          PYTHONUTF8: "1"
-          PYTHONIOENCODING: "utf-8"
-        run: |
-          END_TIME=$((SECONDS + 10800))
-
-          while [ "$SECONDS" -lt "$END_TIME" ]; do
-            echo "Starting the next live video..."
-            python daily_live.py
-
-            EXIT_CODE=$?
-
-            if [ "$EXIT_CODE" -ne 0 ]; then
-              echo "daily_live.py failed with exit code $EXIT_CODE"
-              exit "$EXIT_CODE"
-            fi
-
-            if [ "$SECONDS" -lt "$END_TIME" ]; then
-              echo "Video completed. Waiting 5 seconds..."
-              sleep 5
-            fi
-          done
-
-          echo "Three-hour daily streaming limit completed."
- &&
-              [ $((${#normalized_value} % 4)) -eq 0 ] &&
-              printf '%s' "$normalized_value" |
-              base64 --decode > "$temporary_path" 2>/dev/null; then
+            if [[ "$normalized_value" =~ ^[A-Za-z0-9+/]+={0,2}$ ]] &&
+              (( ${#normalized_value} % 4 == 0 )) &&
+              printf '%s' "$normalized_value" | base64 --decode > "$temporary_path" 2>/dev/null; then
               echo "Decoded ${secret_name} as Base64."
             else
               printf '%s' "$secret_value" > "$temporary_path"
@@ -153,7 +119,7 @@ jobs:
       - name: Validate configuration
         run: |
           python -m json.tool config.json > /dev/null
-          python -c "import json; d=json.load(open('config.json',encoding='utf-8')); print('Channels:', list(d['channels'].keys()))"
+          python -c "import json; d=json.load(open('config.json', encoding='utf-8')); print('Channels:', list(d['channels'].keys()))"
 
       - name: Start three-hour live stream
         env:
