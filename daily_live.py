@@ -111,6 +111,7 @@ def get_title(video_id, cookies_file):
         "yt-dlp", "--skip-download", "--print", "%(title)s",
         "--cookies", cookies_file,
         "--no-warnings",
+        "--verbose",
         *pot_extractor_args(),
         f"https://www.youtube.com/watch?v={video_id}",
     ]
