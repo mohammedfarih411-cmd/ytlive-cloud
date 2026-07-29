@@ -99,15 +99,15 @@ jobs:
             counts="$(awk -F '\t' '
               BEGIN { valid = 0; invalid = 0 }
               {
-                sub(/\r$/, "")
-                if ($0 ~ /^[[:space:]]*$/) next
-                if ($0 ~ /^#HttpOnly_/) { if (NF >= 7) valid++; else invalid++; next }
-                if ($0 ~ /^[[:space:]]*#/) next
-                if (NF >= 7) valid++; else invalid++
-              }
-              END { printf "%d %d", valid, invalid }
-            ' "$cookie_path")"
-            read -r valid_rows invalid_rows <<< "$counts"
+                          sub(/\r$/, "")
+                          if ($0 ~ /^[[:space:]]*$/) next
+                          if ($0 ~ /^#HttpOnly_/) { if (NF >= 7) valid++; else invalid++; next }
+                          if ($0 ~ /^[[:space:]]*#/) next
+                          if (NF >= 7) valid++; else invalid++
+                        }
+                        END { printf "%d %d", valid, invalid }
+                      ' "$cookie_path")"
+                      read -r valid_rows invalid_rows <<< "$counts"
             if (( invalid_rows > 0 || valid_rows == 0 )); then
               echo "::warning title=Skipping malformed cookie secret::${secret_name} has ${valid_rows} valid and ${invalid_rows} malformed Netscape row(s)."
               return 1
