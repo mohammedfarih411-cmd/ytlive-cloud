@@ -118,7 +118,9 @@ def get_title(video_id, cookies_file):
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "unknown yt-dlp error").strip()
-        raise RuntimeError(f"get_title فشل لهذا الفيديو {video_id}: {detail[:500]}")
+        pot_line = next((line for line in detail.splitlines() if "PO Token" in line), None)
+        pot_info = pot_line if pot_line else "POT line not found in log"
+        raise RuntimeError(f"get_title فشل لهذا الفيديو {video_id}: POT={pot_info} | {detail[:500]}")
     return result.stdout.strip()
  
  
