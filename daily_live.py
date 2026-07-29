@@ -17,6 +17,19 @@ from googleapiclient.discovery import build
 BASE = os.path.dirname(os.path.abspath(__file__))
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
 MAX_TITLE = 100
+POT_SERVER_HOME = os.path.join(BASE, "bgutil-ytdlp-pot-provider", "server")
+
+
+def pot_extractor_args():
+    """Use the bgutil PO token provider when it has been set up (e.g. in
+    CI), otherwise fall back to plain cookie-based auth (e.g. a local/VM
+    run where the provider isn't installed)."""
+    if os.path.isdir(POT_SERVER_HOME):
+        return [
+            "--extractor-args",
+            f"youtubepot-bgutilscript:server_home={POT_SERVER_HOME}",
+        ]
+    return []
  
  
 def log(msg):
@@ -74,6 +87,7 @@ def list_channel_videos(channel_url, cookies_file):
             "yt-dlp", "--flat-playlist", "--playlist-end", "200",
             "--ignore-errors", "--print", "%(id)s", "--cookies", cookies_file,
             "--no-warnings",
+            *pot_extractor_args(),
             content_url,
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -97,6 +111,7 @@ def get_title(video_id, cookies_file):
         "yt-dlp", "--skip-download", "--print", "%(title)s",
         "--cookies", cookies_file,
         "--no-warnings",
+        *pot_extractor_args(),
         f"https://www.youtube.com/watch?v={video_id}",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -114,6 +129,7 @@ def download_video(video_id, cookies_file, work_dir, fmt):
         "yt-dlp", "-f", fmt, "--cookies", cookies_file,
         "--merge-output-format", "mp4",
         "--no-warnings",
+        *pot_extractor_args(),
         "-o", os.path.join(work_dir, "today.%(ext)s"),
         f"https://www.youtube.com/watch?v={video_id}",
     ]
