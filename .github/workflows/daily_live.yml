@@ -69,24 +69,48 @@ jobs:
           TOKEN_CHANNEL12_B64: ${{ secrets.TOKEN_CHANNEL12_B64 }}
           TOKEN_CHANNEL13_B64: ${{ secrets.TOKEN_CHANNEL13_B64 }}
           TOKEN_CHANNEL14_B64: ${{ secrets.TOKEN_CHANNEL14_B64 }}
+        shell: bash
         run: |
-          printf '%s' "$COOKIES_RIMAL_B64" | base64 --decode > cookies_rimal.txt
-          printf '%s' "$COOKIES_SANDS_B64" | base64 --decode > cookies_sands.txt
-          printf '%s' "$COOKIES_CRIME_B64" | base64 --decode > cookies_crime.txt
-          printf '%s' "$COOKIES_VOICES_B64" | base64 --decode > cookies_voices.txt
-          printf '%s' "$TOKEN_CHANNEL11_B64" | base64 --decode > token_channel11.json
-          printf '%s' "$TOKEN_CHANNEL12_B64" | base64 --decode > token_channel12.json
-          printf '%s' "$TOKEN_CHANNEL13_B64" | base64 --decode > token_channel13.json
-          printf '%s' "$TOKEN_CHANNEL14_B64" | base64 --decode > token_channel14.json
+          set -euo pipefail
 
-          test -s cookies_rimal.txt
-          test -s cookies_sands.txt
-          test -s cookies_crime.txt
-          test -s cookies_voices.txt
-          test -s token_channel11.json
-          test -s token_channel12.json
-          test -s token_channel13.json
-          test -s token_channel14.json
+          restore_b64() {
+            local secret_name="$1"
+            local encoded_value="$2"
+            local output_path="$3"
+            local temporary_path="${output_path}.tmp"
+
+            if [ -z "$encoded_value" ]; then
+              echo "::error::GitHub secret ${secret_name} is empty."
+              return 1
+            fi
+
+            if ! printf '%s' "$encoded_value" |
+              tr -d '\r\n\t ' |
+              base64 --decode --ignore-garbage > "$temporary_path"; then
+              echo "::error::GitHub secret ${secret_name} is not valid Base64."
+              rm -f "$temporary_path"
+              return 1
+            fi
+
+            if [ ! -s "$temporary_path" ]; then
+              echo "::error::GitHub secret ${secret_name} decoded to an empty file."
+              rm -f "$temporary_path"
+              return 1
+            fi
+
+            mv "$temporary_path" "$output_path"
+            chmod 600 "$output_path"
+            echo "Restored ${output_path} from ${secret_name}."
+          }
+
+          restore_b64 "COOKIES_RIMAL_B64" "$COOKIES_RIMAL_B64" "cookies_rimal.txt"
+          restore_b64 "COOKIES_SANDS_B64" "$COOKIES_SANDS_B64" "cookies_sands.txt"
+          restore_b64 "COOKIES_CRIME_B64" "$COOKIES_CRIME_B64" "cookies_crime.txt"
+          restore_b64 "COOKIES_VOICES_B64" "$COOKIES_VOICES_B64" "cookies_voices.txt"
+          restore_b64 "TOKEN_CHANNEL11_B64" "$TOKEN_CHANNEL11_B64" "token_channel11.json"
+          restore_b64 "TOKEN_CHANNEL12_B64" "$TOKEN_CHANNEL12_B64" "token_channel12.json"
+          restore_b64 "TOKEN_CHANNEL13_B64" "$TOKEN_CHANNEL13_B64" "token_channel13.json"
+          restore_b64 "TOKEN_CHANNEL14_B64" "$TOKEN_CHANNEL14_B64" "token_channel14.json"
 
       - name: Validate configuration
         run: |
