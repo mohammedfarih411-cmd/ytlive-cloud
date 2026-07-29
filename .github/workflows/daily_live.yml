@@ -73,27 +73,65 @@ jobs:
         run: |
           set -euo pipefail
 
-          restore_b64() {
+          restore_secret() {
             local secret_name="$1"
-            local encoded_value="$2"
+            local secret_value="$2"
             local output_path="$3"
+            local normalized_value
             local temporary_path="${output_path}.tmp"
 
-            if [ -z "$encoded_value" ]; then
+            if [ -z "$secret_value" ]; then
               echo "::error::GitHub secret ${secret_name} is empty."
               return 1
             fi
 
-            if ! printf '%s' "$encoded_value" |
-              tr -d '\r\n\t ' |
-              base64 --decode --ignore-garbage > "$temporary_path"; then
-              echo "::error::GitHub secret ${secret_name} is not valid Base64."
-              rm -f "$temporary_path"
-              return 1
+            normalized_value="$(printf '%s' "$secret_value" | tr -d '\r\n\t ')"
+
+            if printf '%s' "$normalized_value" |
+              grep -Eq '^[A-Za-z0-9+/]*={0,2}
+
+      - name: Validate configuration
+        run: |
+          python -m json.tool config.json > /dev/null
+          python -c "import json; d=json.load(open('config.json',encoding='utf-8')); print('Channels:', list(d['channels'].keys()))"
+
+      - name: Start three-hour live stream
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: "utf-8"
+        run: |
+          END_TIME=$((SECONDS + 10800))
+
+          while [ "$SECONDS" -lt "$END_TIME" ]; do
+            echo "Starting the next live video..."
+            python daily_live.py
+
+            EXIT_CODE=$?
+
+            if [ "$EXIT_CODE" -ne 0 ]; then
+              echo "daily_live.py failed with exit code $EXIT_CODE"
+              exit "$EXIT_CODE"
+            fi
+
+            if [ "$SECONDS" -lt "$END_TIME" ]; then
+              echo "Video completed. Waiting 5 seconds..."
+              sleep 5
+            fi
+          done
+
+          echo "Three-hour daily streaming limit completed."
+ &&
+              [ $((${#normalized_value} % 4)) -eq 0 ] &&
+              printf '%s' "$normalized_value" |
+              base64 --decode > "$temporary_path" 2>/dev/null; then
+              echo "Decoded ${secret_name} as Base64."
+            else
+              printf '%s' "$secret_value" > "$temporary_path"
+              echo "Stored ${secret_name} as plain text."
             fi
 
             if [ ! -s "$temporary_path" ]; then
-              echo "::error::GitHub secret ${secret_name} decoded to an empty file."
+              echo "::error::GitHub secret ${secret_name} produced an empty file."
               rm -f "$temporary_path"
               return 1
             fi
@@ -103,14 +141,14 @@ jobs:
             echo "Restored ${output_path} from ${secret_name}."
           }
 
-          restore_b64 "COOKIES_RIMAL_B64" "$COOKIES_RIMAL_B64" "cookies_rimal.txt"
-          restore_b64 "COOKIES_SANDS_B64" "$COOKIES_SANDS_B64" "cookies_sands.txt"
-          restore_b64 "COOKIES_CRIME_B64" "$COOKIES_CRIME_B64" "cookies_crime.txt"
-          restore_b64 "COOKIES_VOICES_B64" "$COOKIES_VOICES_B64" "cookies_voices.txt"
-          restore_b64 "TOKEN_CHANNEL11_B64" "$TOKEN_CHANNEL11_B64" "token_channel11.json"
-          restore_b64 "TOKEN_CHANNEL12_B64" "$TOKEN_CHANNEL12_B64" "token_channel12.json"
-          restore_b64 "TOKEN_CHANNEL13_B64" "$TOKEN_CHANNEL13_B64" "token_channel13.json"
-          restore_b64 "TOKEN_CHANNEL14_B64" "$TOKEN_CHANNEL14_B64" "token_channel14.json"
+          restore_secret "COOKIES_RIMAL_B64" "$COOKIES_RIMAL_B64" "cookies_rimal.txt"
+          restore_secret "COOKIES_SANDS_B64" "$COOKIES_SANDS_B64" "cookies_sands.txt"
+          restore_secret "COOKIES_CRIME_B64" "$COOKIES_CRIME_B64" "cookies_crime.txt"
+          restore_secret "COOKIES_VOICES_B64" "$COOKIES_VOICES_B64" "cookies_voices.txt"
+          restore_secret "TOKEN_CHANNEL11_B64" "$TOKEN_CHANNEL11_B64" "token_channel11.json"
+          restore_secret "TOKEN_CHANNEL12_B64" "$TOKEN_CHANNEL12_B64" "token_channel12.json"
+          restore_secret "TOKEN_CHANNEL13_B64" "$TOKEN_CHANNEL13_B64" "token_channel13.json"
+          restore_secret "TOKEN_CHANNEL14_B64" "$TOKEN_CHANNEL14_B64" "token_channel14.json"
 
       - name: Validate configuration
         run: |
