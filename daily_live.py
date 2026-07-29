@@ -230,7 +230,7 @@ def select_video(cfg, channel, cinfo, cookies, work):
         position = (start_position + offset) % len(ids)
         candidate = ids[position]
         try:
-            title = get_title(candidate, cookies) or "بث مباشر"
+            title = "بث مباشر"
             title = cinfo.get("title_template", "{title}").format(
                 title=title,
                 date=datetime.date.today().isoformat(),
