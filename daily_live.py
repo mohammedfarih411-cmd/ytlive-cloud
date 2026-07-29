@@ -48,20 +48,46 @@ def get_credentials(channel):
     return creds
 
 
-def channel_videos_url(url):
-    if "/videos" not in url and "playlist" not in url:
-        return url.rstrip("/") + "/videos"
-    return url
+def channel_content_urls(url):
+    """Return useful YouTube channel tabs in a stable, de-duplicated order."""
+    url = url.rstrip("/")
+    if "playlist" in url:
+        return [url]
+
+    for suffix in ("/videos", "/shorts", "/streams"):
+        if url.endswith(suffix):
+            url = url[:-len(suffix)]
+            break
+
+    candidates = [url + "/videos", url + "/shorts", url]
+    return list(dict.fromkeys(candidates))
 
 
 def list_channel_videos(channel_url, cookies_file):
-    cmd = [
-        "yt-dlp", "--flat-playlist", "--playlist-end", "200",
-        "--print", "%(id)s", "--cookies", cookies_file,
-        channel_videos_url(channel_url),
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    """List videos without aborting on a broken or empty YouTube tab."""
+    collected = []
+    diagnostics = []
+
+    for content_url in channel_content_urls(channel_url):
+        cmd = [
+            "yt-dlp", "--flat-playlist", "--playlist-end", "200",
+            "--ignore-errors", "--print", "%(id)s", "--cookies", cookies_file,
+            content_url,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        ids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        collected.extend(ids)
+
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "unknown yt-dlp error").strip()
+            diagnostics.append(f"{content_url}: {detail[:300]}")
+
+    ids = list(dict.fromkeys(collected))
+    if ids:
+        return ids
+
+    detail = " | ".join(diagnostics) or "no videos were returned"
+    raise RuntimeError(f"تعذر قراءة فيديوهات القناة: {detail}")
 
 
 def get_title(video_id, cookies_file):
@@ -196,19 +222,42 @@ def select_video(cfg, channel, cinfo, cookies, work):
     )
 
 
+def candidate_channels(cfg):
+    """Try today's channel first, then the remaining configured channels."""
+    order = cfg["schedule_order"]
+    first = pick_today_channel(cfg)
+    start = order.index(first)
+    return order[start:] + order[:start]
+
+
 def main():
     cfg = load_config()
     try:
-        channel = pick_today_channel(cfg)
-        cinfo = cfg["channels"][channel]
-        cookies = os.path.join(BASE, cinfo["cookies_file"])
         work = cfg["work_dir"]
         os.makedirs(work, exist_ok=True)
+        selected = None
+        failures = []
 
-        log(f"قناة اليوم: {cinfo['name']} ({channel})")
-        video_id, title, path, position_file, next_position = select_video(
-            cfg, channel, cinfo, cookies, work
-        )
+        for channel in candidate_channels(cfg):
+            cinfo = cfg["channels"][channel]
+            cookies = os.path.join(BASE, cinfo["cookies_file"])
+            log(f"تجربة القناة: {cinfo['name']} ({channel})")
+            try:
+                video = select_video(cfg, channel, cinfo, cookies, work)
+                selected = (channel, cinfo, cookies, video)
+                break
+            except Exception as exc:
+                failures.append(f"{channel}: {exc}")
+                log(f"تخطي القناة {channel}: {exc}")
+
+        if selected is None:
+            raise RuntimeError(
+                "تعذر العثور على فيديو صالح في جميع القنوات: "
+                + " | ".join(failures)
+            )
+
+        channel, cinfo, cookies, video = selected
+        video_id, title, path, position_file, next_position = video
         log(f"الفيديو المختار: {video_id} — {title}")
         log(f"تم التنزيل: {path}")
 
