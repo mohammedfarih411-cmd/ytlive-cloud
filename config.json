@@ -2,9 +2,7 @@
   "_ملاحظة": "إعداد بث قناة واحدة يوميًا بالتناوب لمدة 3 ساعات دون تيليجرام.",
   "schedule_order": [
     "channel11",
-    "channel12",
-    "channel13",
-    "channel14"
+    "channel12"
   ],
   "epoch_date": "2026-07-14",
   "work_dir": "work",
@@ -24,24 +22,6 @@
       "name": "Sands of Survival",
       "youtube_channel_url": "https://www.youtube.com/@vlh-p8k/videos",
       "cookies_file": "cookies_sands.txt",
-      "title_template": "{title}",
-      "description": "Daily live stream",
-      "privacy": "public",
-      "language": "en"
-    },
-    "channel13": {
-      "name": "أصوات الجريمة",
-      "youtube_channel_url": "https://www.youtube.com/@أصواتالجريمة-ي9ش/videos",
-      "cookies_file": "cookies_crime.txt",
-      "title_template": "{title}",
-      "description": "بث مباشر يومي",
-      "privacy": "public",
-      "language": "ar"
-    },
-    "channel14": {
-      "name": "Voices of Crime",
-      "youtube_channel_url": "https://www.youtube.com/@VoicesofCrime-b9t/videos",
-      "cookies_file": "cookies_voices.txt",
       "title_template": "{title}",
       "description": "Daily live stream",
       "privacy": "public",
