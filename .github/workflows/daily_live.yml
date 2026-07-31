@@ -42,12 +42,8 @@ jobs:
         env:
           COOKIES_RIMAL_B64: ${{ secrets.COOKIES_RIMAL_B64 }}
           COOKIES_SANDS_B64: ${{ secrets.COOKIES_SANDS_B64 }}
-          COOKIES_CRIME_B64: ${{ secrets.COOKIES_CRIME_B64 }}
-          COOKIES_VOICES_B64: ${{ secrets.COOKIES_VOICES_B64 }}
           TOKEN_CHANNEL11_B64: ${{ secrets.TOKEN_CHANNEL11_B64 }}
           TOKEN_CHANNEL12_B64: ${{ secrets.TOKEN_CHANNEL12_B64 }}
-          TOKEN_CHANNEL13_B64: ${{ secrets.TOKEN_CHANNEL13_B64 }}
-          TOKEN_CHANNEL14_B64: ${{ secrets.TOKEN_CHANNEL14_B64 }}
         shell: bash
         run: |
           set -uo pipefail
@@ -99,15 +95,15 @@ jobs:
             counts="$(awk -F '\t' '
               BEGIN { valid = 0; invalid = 0 }
               {
-                          sub(/\r$/, "")
-                          if ($0 ~ /^[[:space:]]*$/) next
-                          if ($0 ~ /^#HttpOnly_/) { if (NF >= 7) valid++; else invalid++; next }
-                          if ($0 ~ /^[[:space:]]*#/) next
-                          if (NF >= 7) valid++; else invalid++
-                        }
-                        END { printf "%d %d", valid, invalid }
-                      ' "$cookie_path")"
-                      read -r valid_rows invalid_rows <<< "$counts"
+                sub(/\r$/, "")
+                if ($0 ~ /^[[:space:]]*$/) next
+                if ($0 ~ /^#HttpOnly_/) { if (NF >= 7) valid++; else invalid++; next }
+                if ($0 ~ /^[[:space:]]*#/) next
+                if (NF >= 7) valid++; else invalid++
+              }
+              END { printf "%d %d", valid, invalid }
+            ' "$cookie_path")"
+            read -r valid_rows invalid_rows <<< "$counts"
             if (( invalid_rows > 0 || valid_rows == 0 )); then
               echo "::warning title=Skipping malformed cookie secret::${secret_name} has ${valid_rows} valid and ${invalid_rows} malformed Netscape row(s)."
               return 1
@@ -121,6 +117,7 @@ jobs:
             if ! python3 - "$token_path" <<'PY'
           import json
           import sys
+
           path = sys.argv[1]
           with open(path, encoding="utf-8") as handle:
               data = json.load(handle)
@@ -156,11 +153,9 @@ jobs:
           usable_channels=0
           prepare_channel channel11 COOKIES_RIMAL_B64 "$COOKIES_RIMAL_B64" cookies_rimal.txt TOKEN_CHANNEL11_B64 "$TOKEN_CHANNEL11_B64" token_channel11.json && usable_channels=$((usable_channels + 1))
           prepare_channel channel12 COOKIES_SANDS_B64 "$COOKIES_SANDS_B64" cookies_sands.txt TOKEN_CHANNEL12_B64 "$TOKEN_CHANNEL12_B64" token_channel12.json && usable_channels=$((usable_channels + 1))
-          prepare_channel channel13 COOKIES_CRIME_B64 "$COOKIES_CRIME_B64" cookies_crime.txt TOKEN_CHANNEL13_B64 "$TOKEN_CHANNEL13_B64" token_channel13.json && usable_channels=$((usable_channels + 1))
-          prepare_channel channel14 COOKIES_VOICES_B64 "$COOKIES_VOICES_B64" cookies_voices.txt TOKEN_CHANNEL14_B64 "$TOKEN_CHANNEL14_B64" token_channel14.json && usable_channels=$((usable_channels + 1))
 
           if (( usable_channels == 0 )); then
-            echo "::error title=No usable YouTube channel::All four cookie/token pairs are missing or malformed. Refresh at least one complete pair."
+            echo "::error title=No usable YouTube channel::Both cookie/token pairs are missing or malformed. Refresh at least one complete pair."
             exit 1
           fi
           echo "Usable channels for this run: ${usable_channels}."
