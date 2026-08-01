@@ -199,6 +199,16 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install --upgrade --pre "yt-dlp[default]"
 
+      - name: Verify yt-dlp works directly
+        shell: bash
+        run: |
+          set -x
+          which yt-dlp
+          yt-dlp --version
+          echo "--- direct invocation exit code check ---"
+          yt-dlp --skip-download --print "%(id)s" --playlist-end 1 "https://www.youtube.com/@mrbeast/videos"
+          echo "exit code: $?"
+
       - name: Validate configuration
         shell: bash
         run: |
