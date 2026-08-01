@@ -7,9 +7,10 @@ import datetime
 import glob
 import json
 import os
+import shutil
 import subprocess
 import sys
- 
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -90,13 +91,17 @@ def list_channel_videos(channel_url, cookies_file):
             *pot_extractor_args(),
             content_url,
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         ids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
         collected.extend(ids)
- 
+
         if result.returncode != 0:
-            detail = (result.stderr or result.stdout or "unknown yt-dlp error").strip()
-            diagnostics.append(f"{content_url}: {detail[:300]}")
+            detail = (
+                f"[exit={result.returncode}] "
+                f"stdout={result.stdout.strip()[:200]!r} "
+                f"stderr={result.stderr.strip()[:200]!r}"
+            )
+            diagnostics.append(f"{content_url}: {detail[:400]}")
  
     ids = list(dict.fromkeys(collected))
     if ids:
@@ -114,9 +119,13 @@ def get_title(video_id, cookies_file):
         *pot_extractor_args(),
         f"https://www.youtube.com/watch?v={video_id}",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout or "unknown yt-dlp error").strip()
+        detail = (
+            f"[exit={result.returncode}] "
+            f"stdout={result.stdout.strip()[:200]!r} "
+            f"stderr={result.stderr.strip()[:200]!r}"
+        )
         raise RuntimeError(f"get_title فشل لهذا الفيديو {video_id}: {detail[:500]}")
     return result.stdout.strip()
  
@@ -133,9 +142,13 @@ def download_video(video_id, cookies_file, work_dir, fmt):
         "-o", os.path.join(work_dir, "today.%(ext)s"),
         f"https://www.youtube.com/watch?v={video_id}",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout or "unknown yt-dlp error").strip()
+        detail = (
+            f"[exit={result.returncode}] "
+            f"stdout={result.stdout.strip()[:200]!r} "
+            f"stderr={result.stderr.strip()[:200]!r}"
+        )
         raise RuntimeError(f"download_video فشل لهذا الفيديو {video_id}: {detail[:500]}")
  
     files = glob.glob(os.path.join(work_dir, "today.*"))
@@ -253,6 +266,8 @@ def candidate_channels(cfg):
  
  
 def main():
+    log(f"yt-dlp resolved to: {shutil.which('yt-dlp')}")
+    log(f"ffmpeg resolved to: {shutil.which('ffmpeg')}")
     cfg = load_config()
     try:
         work = cfg["work_dir"]
