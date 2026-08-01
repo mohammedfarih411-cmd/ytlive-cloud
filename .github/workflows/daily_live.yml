@@ -199,14 +199,16 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install --upgrade --pre "yt-dlp[default]"
 
-      - name: Verify yt-dlp works directly
+      - name: Verify yt-dlp works (as a Python module)
         shell: bash
         run: |
           set -x
-          which yt-dlp
-          yt-dlp --version
+          # The yt-dlp.exe console-script launcher can be broken on this
+          # machine (stale hardcoded interpreter path), so invoke yt-dlp
+          # via "python -m yt_dlp" instead of the standalone executable.
+          python -m yt_dlp --version
           echo "--- direct invocation exit code check ---"
-          yt-dlp --skip-download --print "%(id)s" --playlist-end 1 "https://www.youtube.com/@mrbeast/videos"
+          python -m yt_dlp --skip-download --print "%(id)s" --playlist-end 1 "https://www.youtube.com/@mrbeast/videos"
           echo "exit code: $?"
 
       - name: Validate configuration
