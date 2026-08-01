@@ -165,10 +165,14 @@ jobs:
           fi
           python --version
 
-      - name: Set up Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
+      - name: Verify Deno is installed
+        shell: bash
+        run: |
+          if ! command -v deno >/dev/null 2>&1; then
+            echo "::error title=Deno missing::Install Deno once on this runner machine (e.g. winget install DenoLand.Deno) and make sure it is on PATH, then re-run this workflow."
+            exit 1
+          fi
+          deno --version
 
       - name: Set up PO token provider (bgutil)
         shell: bash
