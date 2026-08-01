@@ -222,3 +222,5 @@ PY
             fi
           done
           echo "Three-hour daily streaming limit completed."
+
+# re-registered after run history reset
