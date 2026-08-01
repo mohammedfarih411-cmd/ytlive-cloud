@@ -111,16 +111,16 @@ jobs:
             local secret_name="$1"
             local token_path="$2"
             if ! python3 - "$token_path" <<'PY'
-import json
-import sys
+          import json
+          import sys
 
-path = sys.argv[1]
-with open(path, encoding="utf-8") as handle:
-    data = json.load(handle)
-required = ("client_id", "client_secret", "refresh_token")
-if not isinstance(data, dict) or any(not data.get(key) for key in required):
-    raise ValueError("OAuth token JSON lacks required fields")
-PY
+          path = sys.argv[1]
+          with open(path, encoding="utf-8") as handle:
+              data = json.load(handle)
+          required = ("client_id", "client_secret", "refresh_token")
+          if not isinstance(data, dict) or any(not data.get(key) for key in required):
+              raise ValueError("OAuth token JSON lacks required fields")
+          PY
             then
               echo "::warning title=Skipping malformed token secret::${secret_name} is not a valid YouTube OAuth token JSON file."
               return 1
@@ -222,5 +222,3 @@ PY
             fi
           done
           echo "Three-hour daily streaming limit completed."
-
-# re-registered after run history reset
