@@ -85,7 +85,7 @@ def list_channel_videos(channel_url, cookies_file):
  
     for content_url in channel_content_urls(channel_url):
         cmd = [
-            "yt-dlp", "--flat-playlist", "--playlist-end", "200",
+            sys.executable, "-m", "yt_dlp", "--flat-playlist", "--playlist-end", "200",
             "--ignore-errors", "--print", "%(id)s", "--cookies", cookies_file,
             "--no-warnings",
             *pot_extractor_args(),
@@ -113,7 +113,7 @@ def list_channel_videos(channel_url, cookies_file):
  
 def get_title(video_id, cookies_file):
     cmd = [
-        "yt-dlp", "--skip-download", "--print", "%(title)s",
+        sys.executable, "-m", "yt_dlp", "--skip-download", "--print", "%(title)s",
         "--cookies", cookies_file,
         "--no-warnings",
         *pot_extractor_args(),
@@ -135,7 +135,7 @@ def download_video(video_id, cookies_file, work_dir, fmt):
         os.remove(path)
  
     cmd = [
-        "yt-dlp", "-f", fmt, "--cookies", cookies_file,
+        sys.executable, "-m", "yt_dlp", "-f", fmt, "--cookies", cookies_file,
         "--merge-output-format", "mp4",
         "--no-warnings",
         *pot_extractor_args(),
