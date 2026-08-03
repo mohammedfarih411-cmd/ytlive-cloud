@@ -27,7 +27,7 @@ jobs:
     needs: gate
     if: ${{ github.event.repository.private == false && needs.gate.outputs.run_stream == 'true' }}
     name: Stream Daily Channel
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 190
 
     steps:
@@ -156,6 +156,11 @@ jobs:
           fi
           echo "Usable channels for this run: ${usable_channels}."
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Verify Python is installed
         shell: bash
         run: |
@@ -164,6 +169,14 @@ jobs:
             exit 1
           fi
           python --version
+
+      - name: Install Deno
+        shell: bash
+        run: |
+          if ! command -v deno >/dev/null 2>&1; then
+            curl -fsSL https://deno.land/install.sh | sh
+            echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+          fi
 
       - name: Verify Deno is installed
         shell: bash
@@ -187,8 +200,8 @@ jobs:
         shell: bash
         run: |
           if ! command -v ffmpeg >/dev/null 2>&1; then
-            echo "::error title=FFmpeg missing::Install ffmpeg once on this runner machine (e.g. winget install ffmpeg) and make sure it is on PATH, then re-run this workflow."
-            exit 1
+            sudo apt-get update -y
+            sudo apt-get install -y ffmpeg
           fi
           ffmpeg -version
 
