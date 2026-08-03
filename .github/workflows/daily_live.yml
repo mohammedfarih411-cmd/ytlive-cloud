@@ -2,6 +2,9 @@ name: Daily YouTube Live
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 17 * * *'
+    - cron: '0 18 * * *'
 
 permissions:
   contents: read
@@ -20,8 +23,14 @@ jobs:
       - id: check
         shell: bash
         run: |
-          echo "run_stream=true" >> "$GITHUB_OUTPUT"
-          echo "Single daily schedule accepted; delayed execution is allowed."
+          CURRENT_HOUR=$(TZ=Europe/Rome date +%H)
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ] || [ "$CURRENT_HOUR" = "19" ]; then
+            echo "run_stream=true" >> "$GITHUB_OUTPUT"
+            echo "Proceeding: manual run or Rome local hour is $CURRENT_HOUR."
+          else
+            echo "run_stream=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping this scheduled trigger: Rome local hour is $CURRENT_HOUR, waiting for 19."
+          fi
 
   stream:
     needs: gate
