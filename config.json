@@ -11,7 +11,7 @@
   "channels": {
     "channel11": {
       "name": "رمال النجاة",
-      "youtube_channel_url": "https://www.youtube.com/@vlh-p8k/videos",
+      "youtube_channel_url": "https://www.youtube.com/@rimalalnajat/videos",
       "cookies_file": "cookies_rimal.txt",
       "title_template": "{title}",
       "description": "بث مباشر يومي",
@@ -20,7 +20,7 @@
     },
     "channel12": {
       "name": "Sands of Survival",
-      "youtube_channel_url": "https://www.youtube.com/@vlh-p8k/videos",
+      "youtube_channel_url": "https://www.youtube.com/@SandsofSurvival/videos",
       "cookies_file": "cookies_sands.txt",
       "title_template": "{title}",
       "description": "Daily live stream",
