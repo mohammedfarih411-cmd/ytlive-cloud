@@ -2,9 +2,9 @@ name: Daily YouTube Live
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 17 * * *'
-    - cron: '0 18 * * *'
+#   schedule:
+    # - cron: '0 17 * * *'
+    # - cron: '0 18 * * *'
 
 permissions:
   contents: read
