@@ -206,7 +206,8 @@ def stream_ffmpeg(video_path, ingest_url, reencode):
     if reencode:
         cmd = [
             "ffmpeg", "-re", "-i", video_path,
-            "-c:v", "libx264", "-preset", "veryfast",
+             "-vf", "scale=-2:720",
+            "-c:v", "libx264", "-preset", "ultrafast",
             "-b:v", "4500k", "-maxrate", "4500k", "-bufsize", "9000k",
             "-pix_fmt", "yuv420p", "-g", "60", "-r", "30",
             "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
