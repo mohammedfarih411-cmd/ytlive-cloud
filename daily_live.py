@@ -241,7 +241,7 @@ def select_video(cfg, channel, cinfo, cookies, work):
         position = (start_position + offset) % len(ids)
         candidate = ids[position]
         try:
-            title = "بث مباشر"
+            title = "Live Stream" if cinfo.get("language") == "en" else "بث مباشر"
             title = cinfo.get("title_template", "{title}").format(
                 title=title,
                 date=datetime.date.today().isoformat(),
