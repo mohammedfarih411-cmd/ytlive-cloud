@@ -2,9 +2,6 @@ name: Daily YouTube Upload
 
 on:
   workflow_dispatch:
-#   schedule:
-    # - cron: '0 17 * * *'
-    # - cron: '0 18 * * *'
 
 permissions:
   contents: read
@@ -14,27 +11,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  gate:
-    name: Check Rome start time
-    runs-on: ubuntu-latest
-    outputs:
-      run_upload: ${{ steps.check.outputs.run_upload }}
-    steps:
-      - id: check
-        shell: bash
-        run: |
-          CURRENT_HOUR=$(TZ=Europe/Rome date +%H)
-          if [ "$GITHUB_EVENT_NAME" != "schedule" ] || [ "$CURRENT_HOUR" = "19" ]; then
-            echo "run_upload=true" >> "$GITHUB_OUTPUT"
-            echo "Proceeding: manual run or Rome local hour is $CURRENT_HOUR."
-          else
-            echo "run_upload=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping this scheduled trigger: Rome local hour is $CURRENT_HOUR, waiting for 19."
-          fi
-
   upload:
-    needs: gate
-    if: ${{ github.event.repository.private == false && needs.gate.outputs.run_upload == 'true' }}
+    if: ${{ github.event.repository.private == false }}
     name: Upload Daily Video
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 60
