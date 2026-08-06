@@ -1,5 +1,5 @@
 {
-  "_ملاحظة": "إعداد بث قناة واحدة يوميًا بالتناوب لمدة 3 ساعات دون تيليجرام.",
+  "_ملاحظة": "إعداد رفع فيديو واحد يوميًا بالتناوب بين القناتين (رفع عادي وليس بثًا مباشرًا).",
   "schedule_order": [
     "channel11",
     "channel12"
@@ -7,25 +7,26 @@
   "epoch_date": "2026-07-14",
   "work_dir": "work",
   "video_format": "bv*[height<=1080]+ba/b[height<=1080]/b",
-  "reencode": true,
   "channels": {
     "channel11": {
       "name": "رمال النجاة",
       "youtube_channel_url": "https://www.youtube.com/@rimalalnajat/videos",
       "cookies_file": "cookies_rimal.txt",
       "title_template": "{title}",
-      "description": "بث مباشر يومي",
+      "description": "رفع يومي تلقائي",
       "privacy": "public",
-      "language": "ar"
+      "language": "ar",
+      "category_id": "20"
     },
     "channel12": {
       "name": "Sands of Survival",
       "youtube_channel_url": "https://www.youtube.com/@SandsofSurvival/videos",
       "cookies_file": "cookies_sands.txt",
       "title_template": "{title}",
-      "description": "Daily live stream",
+      "description": "Daily automatic upload",
       "privacy": "public",
-      "language": "en"
+      "language": "en",
+      "category_id": "20"
     }
   },
   "client_secret_file": "client_secret.json"
