@@ -248,14 +248,23 @@ jobs:
           PYTHONIOENCODING: "utf-8"
         run: |
           END_TIME=$((SECONDS + 10800))
+          FAILURES=0
           while [ "$SECONDS" -lt "$END_TIME" ]; do
             echo "Starting the next live video..."
             python daily_live.py
             EXIT_CODE=$?
             if [ "$EXIT_CODE" -ne 0 ]; then
-              echo "daily_live.py failed with exit code $EXIT_CODE"
-              exit "$EXIT_CODE"
+              FAILURES=$((FAILURES + 1))
+              echo "daily_live.py failed with exit code $EXIT_CODE (consecutive failure #$FAILURES)"
+              if [ "$FAILURES" -ge 5 ]; then
+                echo "Too many consecutive failures in a row, giving up."
+                exit "$EXIT_CODE"
+              fi
+              echo "Retrying in 30 seconds..."
+              sleep 30
+              continue
             fi
+            FAILURES=0
             if [ "$SECONDS" -lt "$END_TIME" ]; then
               echo "Video completed. Waiting 5 seconds..."
               sleep 5
