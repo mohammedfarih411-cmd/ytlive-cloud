@@ -1,4 +1,4 @@
-name: Daily YouTube Live
+name: Daily YouTube Upload
 
 on:
   workflow_dispatch:
@@ -18,26 +18,26 @@ jobs:
     name: Check Rome start time
     runs-on: ubuntu-latest
     outputs:
-      run_stream: ${{ steps.check.outputs.run_stream }}
+      run_upload: ${{ steps.check.outputs.run_upload }}
     steps:
       - id: check
         shell: bash
         run: |
           CURRENT_HOUR=$(TZ=Europe/Rome date +%H)
           if [ "$GITHUB_EVENT_NAME" != "schedule" ] || [ "$CURRENT_HOUR" = "19" ]; then
-            echo "run_stream=true" >> "$GITHUB_OUTPUT"
+            echo "run_upload=true" >> "$GITHUB_OUTPUT"
             echo "Proceeding: manual run or Rome local hour is $CURRENT_HOUR."
           else
-            echo "run_stream=false" >> "$GITHUB_OUTPUT"
+            echo "run_upload=false" >> "$GITHUB_OUTPUT"
             echo "Skipping this scheduled trigger: Rome local hour is $CURRENT_HOUR, waiting for 19."
           fi
 
-  stream:
+  upload:
     needs: gate
-    if: ${{ github.event.repository.private == false && needs.gate.outputs.run_stream == 'true' }}
-    name: Stream Daily Channel
+    if: ${{ github.event.repository.private == false && needs.gate.outputs.run_upload == 'true' }}
+    name: Upload Daily Video
     runs-on: [self-hosted, Windows, X64]
-    timeout-minutes: 190
+    timeout-minutes: 60
 
     steps:
       - name: Download repository
@@ -241,33 +241,23 @@ jobs:
           python -m json.tool config.json > /dev/null
           python -c "import json; d=json.load(open('config.json', encoding='utf-8')); print('Channels:', list(d['channels'].keys()))"
 
-      - name: Start three-hour live stream
+      - name: Upload today's video
         shell: bash
         env:
           PYTHONUTF8: "1"
           PYTHONIOENCODING: "utf-8"
         run: |
-          END_TIME=$((SECONDS + 10800))
-          FAILURES=0
-          while [ "$SECONDS" -lt "$END_TIME" ]; do
-            echo "Starting the next live video..."
-            python daily_live.py
+          ATTEMPTS=0
+          MAX_ATTEMPTS=3
+          until python daily_live.py; do
             EXIT_CODE=$?
-            if [ "$EXIT_CODE" -ne 0 ]; then
-              FAILURES=$((FAILURES + 1))
-              echo "daily_live.py failed with exit code $EXIT_CODE (consecutive failure #$FAILURES)"
-              if [ "$FAILURES" -ge 5 ]; then
-                echo "Too many consecutive failures in a row, giving up."
-                exit "$EXIT_CODE"
-              fi
-              echo "Retrying in 30 seconds..."
-              sleep 30
-              continue
+            ATTEMPTS=$((ATTEMPTS + 1))
+            echo "daily_live.py failed with exit code $EXIT_CODE (attempt $ATTEMPTS of $MAX_ATTEMPTS)"
+            if [ "$ATTEMPTS" -ge "$MAX_ATTEMPTS" ]; then
+              echo "Giving up after $MAX_ATTEMPTS attempts."
+              exit "$EXIT_CODE"
             fi
-            FAILURES=0
-            if [ "$SECONDS" -lt "$END_TIME" ]; then
-              echo "Video completed. Waiting 5 seconds..."
-              sleep 5
-            fi
+            echo "Retrying in 30 seconds..."
+            sleep 30
           done
-          echo "Three-hour daily streaming limit completed."
+          echo "Daily upload completed."
